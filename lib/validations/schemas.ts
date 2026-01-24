@@ -28,56 +28,64 @@ export const firSchema = z.object({
   fir_number: z.string().min(1, 'FIR number is required').max(50, 'FIR number too long'),
   police_station_id: z.number().positive('Police station is required'),
   railway_district_id: z.number().positive('Railway district is required'),
-  incident_date: z.date({
-    required_error: 'Incident date is required',
-  }).refine((date) => date <= new Date(), {
+  incident_date: z.union([
+    z.date(),
+    z.string().transform((val) => new Date(val))
+  ]).refine((date) => {
+    const d = date instanceof Date ? date : new Date(date);
+    return d <= new Date();
+  }, {
     message: 'Incident date cannot be in the future',
   }),
-  incident_time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)'),
-  train_id: z.number().optional(),
-  train_number_manual: z.string().optional(),
-  train_name_manual: z.string().optional(),
-  station_id: z.number().optional(),
-  station_name_manual: z.string().optional(),
+  incident_time: z.string().min(1, 'Time is required'),
+  train_id: z.number().optional().nullable(),
+  train_number_manual: z.string().optional().nullable(),
+  train_name_manual: z.string().optional().nullable(),
+  station_id: z.number().optional().nullable(),
+  station_name_manual: z.string().optional().nullable(),
   modus_operandi_id: z.number().positive('Modus operandi is required'),
   brief_description: z
     .string()
-    .min(50, 'Brief description must be at least 50 characters')
+    .min(10, 'Brief description must be at least 10 characters')
     .max(500, 'Brief description must not exceed 500 characters'),
-  detailed_description: z.string().max(2000, 'Detailed description must not exceed 2000 characters').optional(),
+  detailed_description: z.string().max(2000).optional().nullable(),
   law_sections: z.array(z.number()).min(1, 'At least one law section is required'),
-  law_sections_text: z.string().optional(),
-  property_stolen: z.string().optional(),
-  estimated_value: z.number().min(0).optional(),
+  law_sections_text: z.string().optional().nullable(),
+  property_stolen: z.string().optional().nullable(),
+  estimated_value: z.number().min(0).optional().nullable(),
 })
 
 // Accused Schema
 export const accusedSchema = z.object({
   fir_id: z.number().positive('FIR is required'),
   full_name: z.string().min(3, 'Full name must be at least 3 characters').max(200, 'Name too long'),
-  alias_name: z.string().max(200).optional(),
+  alias_name: z.string().max(200).optional().nullable(),
   gender: z.enum(['Male', 'Female', 'Other'], {
     required_error: 'Gender is required',
   }),
   age: z.number().min(1, 'Age must be at least 1').max(120, 'Age must not exceed 120'),
-  date_of_birth: z.date().optional(),
-  mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits').optional().or(z.literal('')),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  father_name: z.string().max(200).optional(),
-  mother_name: z.string().max(200).optional(),
-  parentage: z.string().optional(),
-  current_address: z.string().min(10, 'Current address is required'),
-  permanent_address: z.string().optional(),
-  police_station_id: z.number().optional(),
-  district_id: z.number().optional(),
-  state_id: z.number().optional(),
-  pincode: z.string().regex(/^[0-9]{6}$/, 'Pincode must be 6 digits').optional().or(z.literal('')),
-  aadhar_number: z.string().regex(/^[0-9]{12}$/, 'Aadhar must be 12 digits').optional().or(z.literal('')),
-  pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'PAN must be in format ABCDE1234F').optional().or(z.literal('')),
-  photo_url: z.string().optional(),
-  identification_marks: z.string().optional(),
-  previous_cases: z.number().min(0).default(0),
-  previous_convictions: z.number().min(0).default(0),
+  date_of_birth: z.union([
+    z.date(),
+    z.string().transform((val) => val ? new Date(val) : null),
+    z.null()
+  ]).optional().nullable(),
+  mobile_number: z.string().regex(/^[0-9]{10}$/, 'Mobile number must be 10 digits').optional().or(z.literal('')).nullable(),
+  email: z.string().email('Invalid email').optional().or(z.literal('')).nullable(),
+  father_name: z.string().max(200).optional().nullable(),
+  mother_name: z.string().max(200).optional().nullable(),
+  parentage: z.string().optional().nullable(),
+  current_address: z.string().min(5, 'Current address is required'),
+  permanent_address: z.string().optional().nullable(),
+  police_station_id: z.number().optional().nullable(),
+  district_id: z.number().optional().nullable(),
+  state_id: z.number().optional().nullable(),
+  pincode: z.string().regex(/^[0-9]{6}$/, 'Pincode must be 6 digits').optional().or(z.literal('')).nullable(),
+  aadhar_number: z.string().regex(/^[0-9]{12}$/, 'Aadhar must be 12 digits').optional().or(z.literal('')).nullable(),
+  pan_number: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, 'PAN must be in format ABCDE1234F').optional().or(z.literal('')).nullable(),
+  photo_url: z.string().optional().nullable(),
+  identification_marks: z.string().optional().nullable(),
+  previous_cases: z.number().min(0).default(0).nullable(),
+  previous_convictions: z.number().min(0).default(0).nullable(),
   is_habitual_offender: z.boolean().default(false),
 })
 
@@ -89,24 +97,36 @@ export const bailSchema = z
     custody_status: z.enum(['bail', 'custody', 'absconding'], {
       required_error: 'Custody status is required',
     }),
-    court_id: z.number().optional(),
-    court_name_manual: z.string().optional(),
-    bail_order_number: z.string().optional(),
-    bail_date: z.date().optional(),
-    bail_amount: z.number().min(0).optional(),
-    bailer_name: z.string().optional(),
-    bailer_relation: z.string().optional(),
-    bailer_parentage: z.string().optional(),
-    bailer_address: z.string().optional(),
-    bailer_state: z.string().optional(),
-    bailer_district: z.string().optional(),
-    bailer_gender: z.string().optional(),
-    bailer_age: z.number().optional(),
-    bailer_mobile: z.string().optional(),
-    bail_conditions: z.string().optional(),
-    next_hearing_date: z.date().optional(),
-    custody_location: z.string().optional(),
-    custody_from_date: z.date().optional(),
+    court_id: z.number().optional().nullable(),
+    court_name_manual: z.string().optional().nullable(),
+    bail_order_number: z.string().optional().nullable(),
+    bail_date: z.union([
+      z.date(),
+      z.string().transform((val) => val ? new Date(val) : null),
+      z.null()
+    ]).optional().nullable(),
+    bail_amount: z.number().min(0).optional().nullable(),
+    bailer_name: z.string().optional().nullable(),
+    bailer_relation: z.string().optional().nullable(),
+    bailer_parentage: z.string().optional().nullable(),
+    bailer_address: z.string().optional().nullable(),
+    bailer_state: z.string().optional().nullable(),
+    bailer_district: z.string().optional().nullable(),
+    bailer_gender: z.string().optional().nullable(),
+    bailer_age: z.number().optional().nullable(),
+    bailer_mobile: z.string().optional().nullable(),
+    bail_conditions: z.string().optional().nullable(),
+    next_hearing_date: z.union([
+      z.date(),
+      z.string().transform((val) => val ? new Date(val) : null),
+      z.null()
+    ]).optional().nullable(),
+    custody_location: z.string().optional().nullable(),
+    custody_from_date: z.union([
+      z.date(),
+      z.string().transform((val) => val ? new Date(val) : null),
+      z.null()
+    ]).optional().nullable(),
   })
   .refine(
     (data) => {
@@ -202,5 +222,3 @@ export type FIRInput = z.infer<typeof firSchema>
 export type AccusedInput = z.infer<typeof accusedSchema>
 export type BailInput = z.infer<typeof bailSchema>
 export type ProfileInput = z.infer<typeof profileSchema>
-
-

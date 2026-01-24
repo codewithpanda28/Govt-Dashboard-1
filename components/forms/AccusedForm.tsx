@@ -52,13 +52,19 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     watch,
   } = useForm<AccusedInput>({
     resolver: zodResolver(accusedSchema),
-    defaultValues: initialData || {},
+    defaultValues: initialData || {
+      previous_cases: 0,
+      previous_convictions: 0,
+      is_habitual_offender: false,
+    },
   })
 
   const firId = watch("fir_id")
   const age = watch("age")
   const dateOfBirth = watch("date_of_birth")
-  const sameAsCurrent = watch("permanent_address") === watch("current_address")
+  const currentAddress = watch("current_address")
+  const permanentAddress = watch("permanent_address")
+  const sameAsCurrent = permanentAddress === currentAddress
 
   useEffect(() => {
     loadData()
@@ -73,7 +79,8 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
 
   useEffect(() => {
     if (dateOfBirth) {
-      const years = differenceInYears(new Date(), new Date(dateOfBirth))
+      const dob = typeof dateOfBirth === 'string' ? new Date(dateOfBirth) : dateOfBirth
+      const years = differenceInYears(new Date(), dob)
       if (years > 0 && years <= 120) {
         setValue("age", years)
       }
@@ -149,6 +156,15 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // Check file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "Photo size must be less than 2MB",
+          variant: "destructive",
+        })
+        return
+      }
       setPhotoFile(file)
       const reader = new FileReader()
       reader.onloadend = () => {
@@ -158,28 +174,82 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     }
   }
 
-  const onSubmit = async (data: AccusedInput) => {
-    if (!user) return
+  // Error handler - validation fail hone pe
+  const onError = (errors: any) => {
+    console.log("❌ Validation Errors:", errors)
+    
+    // Pehla error message dikhao
+    const firstError = Object.values(errors)[0] as any
+    toast({
+      title: "Validation Error",
+      description: firstError?.message || "Please check all required fields",
+      variant: "destructive",
+    })
+  }
 
+  const onSubmit = async (data: AccusedInput) => {
+    console.log("🔥 Accused Form Submitted!", data)
+    
+    if (!user) {
+      console.log("❌ No user found")
+      toast({
+        title: "Error",
+        description: "User session expired. Please login again.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    console.log("✅ User found, saving Accused...")
     setLoading(true)
+    
     try {
       // Upload photo if provided
       let photoUrl = data.photo_url
       if (photoFile) {
-        photoUrl = await uploadPhoto(photoFile)
+        console.log("📷 Uploading photo...")
+        try {
+          photoUrl = await uploadPhoto(photoFile)
+        } catch (photoError) {
+          console.log("⚠️ Photo upload failed, continuing without photo")
+          photoUrl = null
+        }
       }
 
       const accusedData = {
-        ...data,
+        fir_id: data.fir_id,
+        full_name: data.full_name,
+        alias_name: data.alias_name || null,
+        gender: data.gender,
+        age: data.age,
         date_of_birth: data.date_of_birth
-          ? format(data.date_of_birth, "yyyy-MM-dd")
+          ? (typeof data.date_of_birth === 'string' 
+              ? data.date_of_birth 
+              : format(data.date_of_birth, "yyyy-MM-dd"))
           : null,
-        photo_url: photoUrl,
+        is_minor: data.age < 18,
+        mobile_number: data.mobile_number || null,
+        father_name: data.father_name || null,
+        mother_name: data.mother_name || null,
+        parentage: data.parentage || null,
+        current_address: data.current_address,
         permanent_address: sameAsCurrent
           ? data.current_address
-          : data.permanent_address,
+          : data.permanent_address || null,
+        district_id: data.district_id || null,
+        state_id: data.state_id || null,
+        pincode: data.pincode || null,
+        aadhar_number: data.aadhar_number || null,
+        pan_number: data.pan_number || null,
+        photo_url: photoUrl || null,
+        identification_marks: data.identification_marks || null,
+        previous_cases: data.previous_cases || 0,
+        previous_convictions: data.previous_convictions || 0,
+        is_habitual_offender: data.is_habitual_offender || false,
         created_by: user.id,
       }
+
+      console.log("📦 Accused Data to save:", accusedData)
 
       let result
       if (isEdit && initialData?.id) {
@@ -190,8 +260,12 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.log("❌ Update Error:", error)
+          throw error
+        }
         result = updated
+        console.log("✅ Accused Updated:", result)
 
         await createAuditLog({
           userId: user.id,
@@ -207,8 +281,12 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           .select()
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.log("❌ Insert Error:", error)
+          throw error
+        }
         result = inserted
+        console.log("✅ Accused Created:", result)
 
         await createAuditLog({
           userId: user.id,
@@ -229,10 +307,11 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           : "Accused added successfully",
       })
 
-      if (!isEdit && !showBailDialog) {
+      if (isEdit) {
         setTimeout(() => router.push("/accused/list"), 1500)
       }
     } catch (error: any) {
+      console.log("❌ Error:", error)
       toast({
         title: "Error",
         description: error.message || "Failed to save accused",
@@ -276,14 +355,14 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
         {/* Step 1: Link to FIR */}
         {currentStep === 1 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Link to FIR</h2>
             <div className="space-y-2">
               <Label htmlFor="fir_id">
-                FIR <span className="text-danger">*</span>
+                FIR <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={firId?.toString() || ""}
@@ -302,7 +381,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 </SelectContent>
               </Select>
               {errors.fir_id && (
-                <p className="text-sm text-danger">{errors.fir_id.message}</p>
+                <p className="text-sm text-red-500">{errors.fir_id.message}</p>
               )}
             </div>
           </div>
@@ -315,11 +394,11 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="full_name">
-                  Full Name <span className="text-danger">*</span>
+                  Full Name <span className="text-red-500">*</span>
                 </Label>
                 <Input id="full_name" {...register("full_name")} />
                 {errors.full_name && (
-                  <p className="text-sm text-danger">{errors.full_name.message}</p>
+                  <p className="text-sm text-red-500">{errors.full_name.message}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -328,7 +407,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="gender">
-                  Gender <span className="text-danger">*</span>
+                  Gender <span className="text-red-500">*</span>
                 </Label>
                 <div className="flex gap-4">
                   {["Male", "Female", "Other"].map((g) => (
@@ -344,12 +423,12 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   ))}
                 </div>
                 {errors.gender && (
-                  <p className="text-sm text-danger">{errors.gender.message}</p>
+                  <p className="text-sm text-red-500">{errors.gender.message}</p>
                 )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="age">
-                  Age <span className="text-danger">*</span>
+                  Age <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="age"
@@ -359,10 +438,10 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   {...register("age", { valueAsNumber: true })}
                 />
                 {errors.age && (
-                  <p className="text-sm text-danger">{errors.age.message}</p>
+                  <p className="text-sm text-red-500">{errors.age.message}</p>
                 )}
                 {age && age < 18 && (
-                  <Badge variant="warning" className="mt-2">
+                  <Badge variant="destructive" className="mt-2">
                     ⚠️ MINOR
                   </Badge>
                 )}
@@ -372,7 +451,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 <Input
                   id="date_of_birth"
                   type="date"
-                  {...register("date_of_birth", { valueAsDate: true })}
+                  {...register("date_of_birth")}
                 />
               </div>
             </div>
@@ -386,9 +465,13 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="mobile_number">Mobile Number</Label>
-                <Input id="mobile_number" {...register("mobile_number")} />
+                <Input 
+                  id="mobile_number" 
+                  {...register("mobile_number")} 
+                  placeholder="10 digit number"
+                />
                 {errors.mobile_number && (
-                  <p className="text-sm text-danger">
+                  <p className="text-sm text-red-500">
                     {errors.mobile_number.message}
                   </p>
                 )}
@@ -397,7 +480,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 <Label htmlFor="email">Email</Label>
                 <Input id="email" type="email" {...register("email")} />
                 {errors.email && (
-                  <p className="text-sm text-danger">{errors.email.message}</p>
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -423,15 +506,16 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current_address">
-                  Current Address <span className="text-danger">*</span>
+                  Current Address <span className="text-red-500">*</span>
                 </Label>
                 <Textarea
                   id="current_address"
                   rows={3}
                   {...register("current_address")}
+                  placeholder="Enter full address (minimum 5 characters)"
                 />
                 {errors.current_address && (
-                  <p className="text-sm text-danger">
+                  <p className="text-sm text-red-500">
                     {errors.current_address.message}
                   </p>
                 )}
@@ -440,25 +524,24 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 <input
                   type="checkbox"
                   id="same_address"
-                  checked={sameAsCurrent}
                   onChange={(e) => {
                     if (e.target.checked) {
-                      setValue("permanent_address", watch("current_address"))
+                      setValue("permanent_address", currentAddress)
+                    } else {
+                      setValue("permanent_address", "")
                     }
                   }}
                 />
                 <Label htmlFor="same_address">Same as current address</Label>
               </div>
-              {!sameAsCurrent && (
-                <div className="space-y-2">
-                  <Label htmlFor="permanent_address">Permanent Address</Label>
-                  <Textarea
-                    id="permanent_address"
-                    rows={3}
-                    {...register("permanent_address")}
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="permanent_address">Permanent Address</Label>
+                <Textarea
+                  id="permanent_address"
+                  rows={3}
+                  {...register("permanent_address")}
+                />
+              </div>
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="state_id">State</Label>
@@ -511,9 +594,13 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="pincode">Pincode</Label>
-                  <Input id="pincode" {...register("pincode")} />
+                  <Input 
+                    id="pincode" 
+                    {...register("pincode")} 
+                    placeholder="6 digit pincode"
+                  />
                   {errors.pincode && (
-                    <p className="text-sm text-danger">
+                    <p className="text-sm text-red-500">
                       {errors.pincode.message}
                     </p>
                   )}
@@ -530,9 +617,13 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="aadhar_number">Aadhar Number</Label>
-                <Input id="aadhar_number" {...register("aadhar_number")} />
+                <Input 
+                  id="aadhar_number" 
+                  {...register("aadhar_number")} 
+                  placeholder="12 digit Aadhar number"
+                />
                 {errors.aadhar_number && (
-                  <p className="text-sm text-danger">
+                  <p className="text-sm text-red-500">
                     {errors.aadhar_number.message}
                   </p>
                 )}
@@ -545,7 +636,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   placeholder="ABCDE1234F"
                 />
                 {errors.pan_number && (
-                  <p className="text-sm text-danger">
+                  <p className="text-sm text-red-500">
                     {errors.pan_number.message}
                   </p>
                 )}
@@ -575,6 +666,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   id="identification_marks"
                   rows={3}
                   {...register("identification_marks")}
+                  placeholder="Describe any visible identification marks"
                 />
               </div>
             </div>
@@ -592,6 +684,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   id="previous_cases"
                   type="number"
                   min="0"
+                  defaultValue={0}
                   {...register("previous_cases", { valueAsNumber: true })}
                 />
               </div>
@@ -601,6 +694,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   id="previous_convictions"
                   type="number"
                   min="0"
+                  defaultValue={0}
                   {...register("previous_convictions", {
                     valueAsNumber: true,
                   })}
@@ -623,7 +717,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
         )}
 
         {/* Navigation Buttons */}
-        <div className="flex gap-4 justify-between">
+        <div className="flex gap-4 justify-between pt-4 border-t">
           <Button
             type="button"
             variant="outline"
@@ -632,18 +726,20 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           >
             Previous
           </Button>
-          {currentStep < totalSteps ? (
-            <Button
-              type="button"
-              onClick={() => setCurrentStep((s) => Math.min(totalSteps, s + 1))}
-            >
-              Next
-            </Button>
-          ) : (
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : isEdit ? "Update Accused" : "Submit"}
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {currentStep < totalSteps ? (
+              <Button
+                type="button"
+                onClick={() => setCurrentStep((s) => Math.min(totalSteps, s + 1))}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : isEdit ? "Update Accused" : "Submit"}
+              </Button>
+            )}
+          </div>
         </div>
       </form>
 
@@ -679,5 +775,3 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     </>
   )
 }
-
-

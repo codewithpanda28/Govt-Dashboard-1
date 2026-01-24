@@ -35,7 +35,7 @@ interface Accused {
   photo_url: string | null
   is_minor: boolean
   fir_records: { fir_number: string } | null
-  bail_details: { custody_status: string } | null
+  bail_details: { custody_status: string }[] | null  // ✅ Array banao
 }
 
 export default function AccusedListPage() {

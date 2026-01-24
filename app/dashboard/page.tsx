@@ -40,81 +40,104 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadData()
-    const interval = setInterval(loadData, 5 * 60 * 1000) // Refresh every 5 minutes
+    const interval = setInterval(loadData, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
   const loadData = async () => {
     try {
+      console.log("🔄 Loading dashboard data...")
+      
       const currentUser = await getCurrentUser()
+      console.log("🔍 Current User:", currentUser)
+
       if (!currentUser || !currentUser.police_station_id) {
+        console.log("❌ No user or police_station_id found")
+        console.log("User exists:", !!currentUser)
+        console.log("Police Station ID:", currentUser?.police_station_id)
         setLoading(false)
         return
       }
+
+      console.log("✅ User loaded:", {
+        email: currentUser.email,
+        police_station_id: currentUser.police_station_id,
+        role: currentUser.role
+      })
 
       setUser(currentUser)
 
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+      
+      const todayStr = today.toISOString().split("T")[0]
+      const monthStr = monthStart.toISOString().split("T")[0]
+
+      console.log("📅 Date filters:", { todayStr, monthStr })
 
       // Get today's FIRs
-      const { count: todayCount } = await supabase
+      console.log("📊 Fetching today's FIRs...")
+      const todayQuery = await supabase
         .from("fir_records")
         .select("*", { count: "exact", head: true })
         .eq("police_station_id", currentUser.police_station_id)
         .eq("is_deleted", false)
-        .gte("incident_date", today.toISOString().split("T")[0])
+        .gte("incident_date", todayStr)
+
+      console.log("Today FIRs result:", todayQuery)
 
       // Get month's FIRs
-      const { count: monthCount } = await supabase
+      console.log("📊 Fetching month's FIRs...")
+      const monthQuery = await supabase
         .from("fir_records")
         .select("*", { count: "exact", head: true })
         .eq("police_station_id", currentUser.police_station_id)
         .eq("is_deleted", false)
-        .gte("incident_date", monthStart.toISOString().split("T")[0])
+        .gte("incident_date", monthStr)
+
+      console.log("Month FIRs result:", monthQuery)
+
+      // Get FIR IDs for bail/custody queries
+      const firIds = await supabase
+        .from("fir_records")
+        .select("id")
+        .eq("police_station_id", currentUser.police_station_id)
+        .eq("is_deleted", false)
+
+      console.log("FIR IDs for bail/custody:", firIds.data?.map(f => f.id))
 
       // Get bail cases
-      const { count: bailCount } = await supabase
+      const bailQuery = await supabase
         .from("bail_details")
         .select("*", { count: "exact", head: true })
         .eq("custody_status", "bail")
-        .in(
-          "fir_id",
-          (
-            await supabase
-              .from("fir_records")
-              .select("id")
-              .eq("police_station_id", currentUser.police_station_id)
-              .eq("is_deleted", false)
-          ).data?.map((f) => f.id) || []
-        )
+        .in("fir_id", firIds.data?.map((f) => f.id) || [])
+
+      console.log("Bail cases result:", bailQuery)
 
       // Get custody cases
-      const { count: custodyCount } = await supabase
+      const custodyQuery = await supabase
         .from("bail_details")
         .select("*", { count: "exact", head: true })
         .eq("custody_status", "custody")
-        .in(
-          "fir_id",
-          (
-            await supabase
-              .from("fir_records")
-              .select("id")
-              .eq("police_station_id", currentUser.police_station_id)
-              .eq("is_deleted", false)
-          ).data?.map((f) => f.id) || []
-        )
+        .in("fir_id", firIds.data?.map((f) => f.id) || [])
 
-      setStats({
-        todayFIRs: todayCount || 0,
-        monthFIRs: monthCount || 0,
-        bailCases: bailCount || 0,
-        custodyCases: custodyCount || 0,
-      })
+      console.log("Custody cases result:", custodyQuery)
+
+      const newStats = {
+        todayFIRs: todayQuery.count || 0,
+        monthFIRs: monthQuery.count || 0,
+        bailCases: bailQuery.count || 0,
+        custodyCases: custodyQuery.count || 0,
+      }
+
+      console.log("📈 Final stats:", newStats)
+      setStats(newStats)
 
       // Get recent FIRs
-      const { data: recentData } = await supabase
+      console.log("📋 Fetching recent FIRs...")
+      const { data: recentData, error: recentError } = await supabase
         .from("fir_records")
         .select("*")
         .eq("police_station_id", currentUser.police_station_id)
@@ -122,9 +145,13 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
         .limit(5)
 
+      console.log("Recent FIRs result:", { data: recentData, error: recentError })
+
       setRecentFIRs(recentData || [])
+      
+      console.log("✅ Dashboard loaded successfully!")
     } catch (error) {
-      console.error("Error loading dashboard:", error)
+      console.error("❌ Error loading dashboard:", error)
     } finally {
       setLoading(false)
     }
@@ -270,5 +297,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
-
