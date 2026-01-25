@@ -259,7 +259,7 @@ export default function AccusedListPage() {
           
           <div className="flex items-center gap-4">
             {/* Notification Bell */}
-            <DropdownMenu open={showNotifications} onOpenChange={setShowNotifications}>
+            {/* <DropdownMenu open={showNotifications} onOpenChange={setShowNotifications}>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                   <Bell className="h-5 w-5" />
@@ -314,7 +314,7 @@ export default function AccusedListPage() {
                   </Button>
                 </div>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
 
             {/* User Menu */}
             <DropdownMenu>
@@ -509,7 +509,8 @@ export default function AccusedListPage() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => router.push(`/accused/edit/${accused.id}`)}>
+                              {/* ✅ YEH LINE FIX KARI - EDIT ROUTE */}
+                              <DropdownMenuItem onClick={() => router.push(`/accused/${accused.id}/edit`)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
