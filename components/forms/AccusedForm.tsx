@@ -19,11 +19,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { format, differenceInYears } from "date-fns"
+import { 
+  User, 
+  Phone, 
+  MapPin, 
+  FileText, 
+  AlertCircle,
+  Camera,
+  Shield,
+  Users
+} from "lucide-react"
 
 interface AccusedFormProps {
   initialData?: any
@@ -37,7 +54,6 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
   const [loading, setLoading] = useState(false)
   const [masterData, setMasterData] = useState<any>(null)
   const [user, setUser] = useState<any>(null)
-  const [currentStep, setCurrentStep] = useState(1)
   const [firs, setFirs] = useState<any[]>([])
   const [showBailDialog, setShowBailDialog] = useState(false)
   const [newAccusedId, setNewAccusedId] = useState<number | null>(null)
@@ -63,8 +79,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
   const age = watch("age")
   const dateOfBirth = watch("date_of_birth")
   const currentAddress = watch("current_address")
-  const permanentAddress = watch("permanent_address")
-  const sameAsCurrent = permanentAddress === currentAddress
+  const stateId = watch("state_id")
 
   useEffect(() => {
     loadData()
@@ -87,16 +102,6 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     }
   }, [dateOfBirth, setValue])
 
-  useEffect(() => {
-    if (age && age < 18) {
-      toast({
-        title: "Minor Detected",
-        description: "This person is a minor. Special procedures may apply.",
-        variant: "default",
-      })
-    }
-  }, [age, toast])
-
   const loadData = async () => {
     try {
       const currentUser = await getCurrentUser()
@@ -106,15 +111,10 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
       }
       setUser(currentUser)
 
-      // Load master data
       const [states, districts, policeStations] = await Promise.all([
         supabase.from("states").select("*").eq("is_active", true).order("name"),
         supabase.from("districts").select("*").eq("is_active", true).order("name"),
-        supabase
-          .from("police_stations")
-          .select("*")
-          .eq("is_active", true)
-          .order("name"),
+        supabase.from("police_stations").select("*").eq("is_active", true).order("name"),
       ])
 
       setMasterData({
@@ -123,7 +123,6 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
         policeStations: policeStations.data || [],
       })
 
-      // Load FIRs for current user's station
       if (currentUser.police_station_id) {
         const { data: firsData } = await supabase
           .from("fir_records")
@@ -156,7 +155,6 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // Check file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         toast({
           title: "Error",
@@ -174,11 +172,8 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     }
   }
 
-  // Error handler - validation fail hone pe
   const onError = (errors: any) => {
     console.log("❌ Validation Errors:", errors)
-    
-    // Pehla error message dikhao
     const firstError = Object.values(errors)[0] as any
     toast({
       title: "Validation Error",
@@ -191,7 +186,6 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     console.log("🔥 Accused Form Submitted!", data)
     
     if (!user) {
-      console.log("❌ No user found")
       toast({
         title: "Error",
         description: "User session expired. Please login again.",
@@ -200,11 +194,9 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
       return
     }
 
-    console.log("✅ User found, saving Accused...")
     setLoading(true)
     
     try {
-      // Upload photo if provided
       let photoUrl = data.photo_url
       if (photoFile) {
         console.log("📷 Uploading photo...")
@@ -227,15 +219,13 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
               ? data.date_of_birth 
               : format(data.date_of_birth, "yyyy-MM-dd"))
           : null,
-        is_minor: data.age < 18,
+        // ❌ REMOVED: is_minor (auto-calculated by database)
         mobile_number: data.mobile_number || null,
         father_name: data.father_name || null,
         mother_name: data.mother_name || null,
         parentage: data.parentage || null,
         current_address: data.current_address,
-        permanent_address: sameAsCurrent
-          ? data.current_address
-          : data.permanent_address || null,
+        permanent_address: data.permanent_address || data.current_address,
         district_id: data.district_id || null,
         state_id: data.state_id || null,
         pincode: data.pincode || null,
@@ -260,12 +250,8 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           .select()
           .single()
 
-        if (error) {
-          console.log("❌ Update Error:", error)
-          throw error
-        }
+        if (error) throw error
         result = updated
-        console.log("✅ Accused Updated:", result)
 
         await createAuditLog({
           userId: user.id,
@@ -281,12 +267,8 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
           .select()
           .single()
 
-        if (error) {
-          console.log("❌ Insert Error:", error)
-          throw error
-        }
+        if (error) throw error
         result = inserted
-        console.log("✅ Accused Created:", result)
 
         await createAuditLog({
           userId: user.id,
@@ -301,7 +283,7 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
       }
 
       toast({
-        title: "Success",
+        title: "✅ Success",
         description: isEdit
           ? "Accused updated successfully"
           : "Accused added successfully",
@@ -333,43 +315,29 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
     )
   }
 
-  const totalSteps = 6
-
   return (
     <>
-      {/* Progress Bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">
-            Step {currentStep} of {totalSteps}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {Math.round((currentStep / totalSteps) * 100)}%
-          </span>
-        </div>
-        <div className="w-full bg-secondary rounded-full h-2">
-          <div
-            className="bg-primary h-2 rounded-full transition-all"
-            style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-          />
-        </div>
-      </div>
-
       <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
-        {/* Step 1: Link to FIR */}
-        {currentStep === 1 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Link to FIR</h2>
+        {/* FIR Selection */}
+        <Card className="border-2 border-amber-200">
+          <CardHeader className="bg-gradient-to-r from-amber-50 to-orange-50">
+            <CardTitle className="flex items-center gap-2 text-amber-900">
+              <FileText className="h-5 w-5" />
+              Link to FIR
+            </CardTitle>
+            <CardDescription>Select the FIR this accused is linked to</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
             <div className="space-y-2">
               <Label htmlFor="fir_id">
-                FIR <span className="text-red-500">*</span>
+                FIR Number <span className="text-red-500">*</span>
               </Label>
               <Select
                 value={firId?.toString() || ""}
                 onValueChange={(value) => setValue("fir_id", parseInt(value))}
                 disabled={!!searchParams.get("fir_id")}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue placeholder="Select FIR" />
                 </SelectTrigger>
                 <SelectContent>
@@ -381,44 +349,113 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                 </SelectContent>
               </Select>
               {errors.fir_id && (
-                <p className="text-sm text-red-500">{errors.fir_id.message}</p>
+                <p className="text-sm text-red-500 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.fir_id.message}
+                </p>
               )}
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Step 2: Personal Details */}
-        {currentStep === 2 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Personal Details</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+        {/* Personal Details */}
+        <Card className="border-2 border-blue-200">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50">
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <User className="h-5 w-5" />
+              Personal Details
+            </CardTitle>
+            <CardDescription>Basic information about the accused</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {/* Photo Upload - Full Width */}
+              <div className="md:col-span-2 lg:col-span-1 flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-4 bg-gray-50">
+                {photoPreview ? (
+                  <div className="relative">
+                    <img
+                      src={photoPreview}
+                      alt="Preview"
+                      className="w-40 h-40 object-cover rounded-lg shadow-lg"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setPhotoFile(null)
+                        setPhotoPreview("")
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <Camera className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                    <Label htmlFor="photo" className="cursor-pointer">
+                      <div className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                        Upload Photo
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Max 2MB, JPG/PNG</p>
+                    </Label>
+                    <Input
+                      id="photo"
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Full Name */}
               <div className="space-y-2">
                 <Label htmlFor="full_name">
                   Full Name <span className="text-red-500">*</span>
                 </Label>
-                <Input id="full_name" {...register("full_name")} />
+                <Input 
+                  id="full_name" 
+                  {...register("full_name")} 
+                  placeholder="Enter full name"
+                  className="h-11"
+                />
                 {errors.full_name && (
-                  <p className="text-sm text-red-500">{errors.full_name.message}</p>
+                  <p className="text-sm text-red-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.full_name.message}
+                  </p>
                 )}
               </div>
+
+              {/* Alias Name */}
               <div className="space-y-2">
-                <Label htmlFor="alias_name">Alias Name</Label>
-                <Input id="alias_name" {...register("alias_name")} />
+                <Label htmlFor="alias_name">Alias / Nickname</Label>
+                <Input 
+                  id="alias_name" 
+                  {...register("alias_name")} 
+                  placeholder="Known as..."
+                  className="h-11"
+                />
               </div>
+
+              {/* Gender */}
               <div className="space-y-2">
-                <Label htmlFor="gender">
+                <Label>
                   Gender <span className="text-red-500">*</span>
                 </Label>
-                <div className="flex gap-4">
+                <div className="flex gap-4 pt-2">
                   {["Male", "Female", "Other"].map((g) => (
-                    <label key={g} className="flex items-center gap-2">
+                    <label key={g} className="flex items-center gap-2 cursor-pointer">
                       <input
                         type="radio"
                         value={g}
                         {...register("gender")}
-                        className="w-4 h-4"
+                        className="w-4 h-4 text-blue-600"
                       />
-                      {g}
+                      <span className="text-sm">{g}</span>
                     </label>
                   ))}
                 </div>
@@ -426,6 +463,19 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   <p className="text-sm text-red-500">{errors.gender.message}</p>
                 )}
               </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-2">
+                <Label htmlFor="date_of_birth">Date of Birth</Label>
+                <Input
+                  id="date_of_birth"
+                  type="date"
+                  {...register("date_of_birth")}
+                  className="h-11"
+                />
+              </div>
+
+              {/* Age */}
               <div className="space-y-2">
                 <Label htmlFor="age">
                   Age <span className="text-red-500">*</span>
@@ -436,74 +486,102 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   min="1"
                   max="120"
                   {...register("age", { valueAsNumber: true })}
+                  placeholder="Years"
+                  className="h-11"
                 />
                 {errors.age && (
                   <p className="text-sm text-red-500">{errors.age.message}</p>
                 )}
                 {age && age < 18 && (
-                  <Badge variant="destructive" className="mt-2">
-                    ⚠️ MINOR
+                  <Badge variant="destructive" className="mt-1">
+                    ⚠️ MINOR (Under 18)
                   </Badge>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="date_of_birth">Date of Birth</Label>
-                <Input
-                  id="date_of_birth"
-                  type="date"
-                  {...register("date_of_birth")}
-                />
-              </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Step 3: Contact & Family */}
-        {currentStep === 3 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Contact & Family</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+        {/* Contact & Family */}
+        <Card className="border-2 border-green-200">
+          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardTitle className="flex items-center gap-2 text-green-900">
+              <Users className="h-5 w-5" />
+              Contact & Family Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="mobile_number">Mobile Number</Label>
+                <Label htmlFor="mobile_number" className="flex items-center gap-2">
+                  <Phone className="h-4 w-4" />
+                  Mobile Number
+                </Label>
                 <Input 
                   id="mobile_number" 
                   {...register("mobile_number")} 
                   placeholder="10 digit number"
+                  className="h-11"
                 />
                 {errors.mobile_number && (
-                  <p className="text-sm text-red-500">
-                    {errors.mobile_number.message}
-                  </p>
+                  <p className="text-sm text-red-500">{errors.mobile_number.message}</p>
                 )}
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...register("email")} />
-                {errors.email && (
-                  <p className="text-sm text-red-500">{errors.email.message}</p>
-                )}
+                <Label htmlFor="email">Email Address</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  {...register("email")} 
+                  placeholder="example@email.com"
+                  className="h-11"
+                />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="father_name">Father Name</Label>
-                <Input id="father_name" {...register("father_name")} />
+                <Label htmlFor="father_name">Father's Name</Label>
+                <Input 
+                  id="father_name" 
+                  {...register("father_name")} 
+                  placeholder="S/o..."
+                  className="h-11"
+                />
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="mother_name">Mother Name</Label>
-                <Input id="mother_name" {...register("mother_name")} />
+                <Label htmlFor="mother_name">Mother's Name</Label>
+                <Input 
+                  id="mother_name" 
+                  {...register("mother_name")} 
+                  placeholder="Mother's name"
+                  className="h-11"
+                />
               </div>
+
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="parentage">Parentage</Label>
-                <Textarea id="parentage" {...register("parentage")} />
+                <Label htmlFor="parentage">Complete Parentage</Label>
+                <Textarea 
+                  id="parentage" 
+                  {...register("parentage")} 
+                  placeholder="S/o... R/o..."
+                  rows={2}
+                />
               </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Step 4: Address */}
-        {currentStep === 4 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Address</h2>
-            <div className="space-y-4">
+        {/* Address Details */}
+        <Card className="border-2 border-purple-200">
+          <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50">
+            <CardTitle className="flex items-center gap-2 text-purple-900">
+              <MapPin className="h-5 w-5" />
+              Address Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="current_address">
                   Current Address <span className="text-red-500">*</span>
@@ -512,18 +590,19 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   id="current_address"
                   rows={3}
                   {...register("current_address")}
-                  placeholder="Enter full address (minimum 5 characters)"
+                  placeholder="House No., Street, Landmark, City"
+                  className="resize-none"
                 />
                 {errors.current_address && (
-                  <p className="text-sm text-red-500">
-                    {errors.current_address.message}
-                  </p>
+                  <p className="text-sm text-red-500">{errors.current_address.message}</p>
                 )}
               </div>
+
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="same_address"
+                  className="w-4 h-4 text-purple-600 rounded"
                   onChange={(e) => {
                     if (e.target.checked) {
                       setValue("permanent_address", currentAddress)
@@ -532,27 +611,33 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                     }
                   }}
                 />
-                <Label htmlFor="same_address">Same as current address</Label>
+                <Label htmlFor="same_address" className="cursor-pointer">
+                  Permanent address same as current address
+                </Label>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="permanent_address">Permanent Address</Label>
                 <Textarea
                   id="permanent_address"
                   rows={3}
                   {...register("permanent_address")}
+                  placeholder="Native place address"
+                  className="resize-none"
                 />
               </div>
+
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="state_id">State</Label>
                   <Select
-                    value={watch("state_id")?.toString() || ""}
+                    value={stateId?.toString() || ""}
                     onValueChange={(value) => {
                       setValue("state_id", parseInt(value))
                       setValue("district_id", undefined)
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select state" />
                     </SelectTrigger>
                     <SelectContent>
@@ -564,120 +649,107 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="district_id">District</Label>
                   <Select
                     value={watch("district_id")?.toString() || ""}
-                    onValueChange={(value) =>
-                      setValue("district_id", parseInt(value))
-                    }
-                    disabled={!watch("state_id")}
+                    onValueChange={(value) => setValue("district_id", parseInt(value))}
+                    disabled={!stateId}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11">
                       <SelectValue placeholder="Select district" />
                     </SelectTrigger>
                     <SelectContent>
                       {masterData.districts
-                        .filter(
-                          (d: any) => d.state_id === watch("state_id")
-                        )
+                        .filter((d: any) => d.state_id === stateId)
                         .map((district: any) => (
-                          <SelectItem
-                            key={district.id}
-                            value={district.id.toString()}
-                          >
+                          <SelectItem key={district.id} value={district.id.toString()}>
                             {district.name}
                           </SelectItem>
                         ))}
                     </SelectContent>
                   </Select>
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="pincode">Pincode</Label>
                   <Input 
                     id="pincode" 
                     {...register("pincode")} 
-                    placeholder="6 digit pincode"
+                    placeholder="6 digits"
+                    className="h-11"
                   />
                   {errors.pincode && (
-                    <p className="text-sm text-red-500">
-                      {errors.pincode.message}
-                    </p>
+                    <p className="text-sm text-red-500">{errors.pincode.message}</p>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Step 5: Identification */}
-        {currentStep === 5 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Identification</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+        {/* Identification */}
+        <Card className="border-2 border-indigo-200">
+          <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50">
+            <CardTitle className="flex items-center gap-2 text-indigo-900">
+              <Shield className="h-5 w-5" />
+              Identification Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="aadhar_number">Aadhar Number</Label>
                 <Input 
                   id="aadhar_number" 
                   {...register("aadhar_number")} 
-                  placeholder="12 digit Aadhar number"
+                  placeholder="XXXX-XXXX-XXXX"
+                  className="h-11"
                 />
                 {errors.aadhar_number && (
-                  <p className="text-sm text-red-500">
-                    {errors.aadhar_number.message}
-                  </p>
+                  <p className="text-sm text-red-500">{errors.aadhar_number.message}</p>
                 )}
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="pan_number">PAN Number</Label>
                 <Input
                   id="pan_number"
                   {...register("pan_number")}
                   placeholder="ABCDE1234F"
+                  className="h-11 uppercase"
                 />
                 {errors.pan_number && (
-                  <p className="text-sm text-red-500">
-                    {errors.pan_number.message}
-                  </p>
+                  <p className="text-sm text-red-500">{errors.pan_number.message}</p>
                 )}
               </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="photo">Photo</Label>
-                <Input
-                  id="photo"
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  onChange={handlePhotoChange}
-                />
-                {photoPreview && (
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="mt-2 w-32 h-32 object-cover rounded"
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Max 2MB, JPG or PNG
-                </p>
-              </div>
+
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="identification_marks">Identification Marks</Label>
                 <Textarea
                   id="identification_marks"
                   rows={3}
                   {...register("identification_marks")}
-                  placeholder="Describe any visible identification marks"
+                  placeholder="Scars, tattoos, birthmarks, etc."
+                  className="resize-none"
                 />
               </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Step 6: Criminal History */}
-        {currentStep === 6 && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Criminal History</h2>
-            <div className="grid gap-4 md:grid-cols-3">
+        {/* Criminal History */}
+        <Card className="border-2 border-red-200">
+          <CardHeader className="bg-gradient-to-r from-red-50 to-rose-50">
+            <CardTitle className="flex items-center gap-2 text-red-900">
+              <AlertCircle className="h-5 w-5" />
+              Criminal History
+            </CardTitle>
+            <CardDescription>Previous criminal records and history</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="previous_cases">Previous Cases</Label>
                 <Input
@@ -686,8 +758,10 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   min="0"
                   defaultValue={0}
                   {...register("previous_cases", { valueAsNumber: true })}
+                  className="h-11"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="previous_convictions">Previous Convictions</Label>
                 <Input
@@ -695,58 +769,57 @@ export function AccusedForm({ initialData, isEdit = false }: AccusedFormProps) {
                   type="number"
                   min="0"
                   defaultValue={0}
-                  {...register("previous_convictions", {
-                    valueAsNumber: true,
-                  })}
+                  {...register("previous_convictions", { valueAsNumber: true })}
+                  className="h-11"
                 />
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    id="is_habitual_offender"
-                    {...register("is_habitual_offender")}
-                  />
-                  <Label htmlFor="is_habitual_offender">
-                    Habitual Offender
-                  </Label>
-                </div>
+
+              <div className="flex items-center gap-2 pt-8">
+                <input
+                  type="checkbox"
+                  id="is_habitual_offender"
+                  {...register("is_habitual_offender")}
+                  className="w-4 h-4 text-red-600 rounded"
+                />
+                <Label htmlFor="is_habitual_offender" className="cursor-pointer font-semibold">
+                  Habitual Offender
+                </Label>
               </div>
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
 
-        {/* Navigation Buttons */}
-        <div className="flex gap-4 justify-between pt-4 border-t">
+        {/* Submit Button */}
+        <div className="flex gap-4 justify-end pt-4 border-t-2">
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCurrentStep((s) => Math.max(1, s - 1))}
-            disabled={currentStep === 1}
+            onClick={() => router.back()}
+            disabled={loading}
           >
-            Previous
+            Cancel
           </Button>
-          <div className="flex gap-2">
-            {currentStep < totalSteps ? (
-              <Button
-                type="button"
-                onClick={() => setCurrentStep((s) => Math.min(totalSteps, s + 1))}
-              >
-                Next
-              </Button>
+          <Button 
+            type="submit" 
+            disabled={loading}
+            className="min-w-[150px] bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                Saving...
+              </span>
             ) : (
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : isEdit ? "Update Accused" : "Submit"}
-              </Button>
+              <span>{isEdit ? "Update Accused" : "Submit & Save"}</span>
             )}
-          </div>
+          </Button>
         </div>
       </form>
 
       <Dialog open={showBailDialog} onOpenChange={setShowBailDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Accused Added Successfully</DialogTitle>
+            <DialogTitle>✅ Accused Added Successfully</DialogTitle>
             <DialogDescription>
               Would you like to update bail status for this accused now?
             </DialogDescription>
