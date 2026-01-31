@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { getCurrentUser } from "@/lib/auth"
+import { getCurrentUser, type User } from "@/lib/auth"
 import { supabase } from "@/lib/supabase/client"
 import { Header } from "@/components/layout/Header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,7 +20,7 @@ import {
   AlertCircle,
   TrendingUp,
   BarChart3,
-  User,
+  User as UserIcon,
   ShieldCheck,
   Info
 } from "lucide-react"
@@ -89,7 +89,7 @@ interface TopBailer {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [stats, setStats] = useState<Stats>({
     totalDistricts: 0,
     totalThanas: 0,
@@ -133,10 +133,17 @@ export default function DashboardPage() {
 
       setUser(currentUser)
 
-      // 🔥 GET USER'S ROLE AND ASSIGNED LOCATIONS
+      // 🔥 GET USER'S ROLE AND ASSIGNED LOCATIONS WITH TYPE SAFETY
       const userRole = currentUser.role || 'station_officer'
-      const userThanaId = currentUser.thana_id
-      const userDistrictId = currentUser.district_id
+      
+      // 🔥 FIXED: Safe access with fallback to both possible column names
+      const userThanaId = (currentUser as any).thana_id || 
+                         (currentUser as any).police_station_id || 
+                         null
+                         
+      const userDistrictId = (currentUser as any).district_id || 
+                            (currentUser as any).railway_district_id || 
+                            null
 
       console.log("🔐 User Access Level:", {
         email: currentUser.email,
@@ -582,7 +589,7 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center border-2 border-primary/20">
-                  <User className="h-6 w-6 text-primary" />
+                  <UserIcon className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-primary">Welcome, {user?.full_name}</h2>
@@ -870,7 +877,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 bg-orange-100 rounded-lg flex items-center justify-center border-2 border-orange-200">
-                    <User className="h-5 w-5 text-orange-600" />
+                    <UserIcon className="h-5 w-5 text-orange-600" />
                   </div>
                   <div>
                     <CardTitle className="text-lg font-bold text-orange-700">Top 10 Accused</CardTitle>
