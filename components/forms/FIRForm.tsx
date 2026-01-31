@@ -1,13 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { firSchema, type FIRInput } from "@/lib/validations/schemas"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
 import { getCurrentUser } from "@/lib/auth"
-import { createAuditLog } from "@/lib/utils/audit-log"
-import { getNextFIRNumber, getMasterData } from "@/lib/hooks/use-fir"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,174 +15,214 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { MultiSelect } from "@/components/ui/multi-select"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { format } from "date-fns"
 
-interface FIRFormProps {
-  initialData?: any
-  isEdit?: boolean
+interface PersonDetail {
+  id: string
+  name: string
+  aadhaar_no: string
+  gender: string
+  dob: string
+  age: string
+  pan_no: string
+  father_name: string
+  state: string
+  district: string
+  full_address: string
+  pin_code: string
+  mobile: string
+  email: string
 }
 
-export function FIRForm({ initialData, isEdit = false }: FIRFormProps) {
+export function FIRForm() {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [masterData, setMasterData] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
-  const [showAddAccusedDialog, setShowAddAccusedDialog] = useState(false)
-  const [newFIRId, setNewFIRId] = useState<number | null>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
-  } = useForm<FIRInput>({
-    resolver: zodResolver(firSchema),
-    defaultValues: initialData || {},
-  })
+  // Case Details
+  const [accusedType, setAccusedType] = useState("")
+  const [state, setState] = useState("")
+  const [zone, setZone] = useState("")
+  const [district, setDistrict] = useState("")
+  const [thana, setThana] = useState("")
+  const [court, setCourt] = useState("")
+  const [section, setSection] = useState("")
+  const [firNo, setFirNo] = useState("")
+  const [firDate, setFirDate] = useState("")
+  const [incidentTime, setIncidentTime] = useState("")
+  const [trainNo, setTrainNo] = useState("")
+  const [trainName, setTrainName] = useState("")
+  const [stationCode, setStationCode] = useState("")
+  const [stationName, setStationName] = useState("")
+  const [brief, setBrief] = useState("")
+  const [firCopyUrl, setFirCopyUrl] = useState("")
 
-  const modusOperandiId = watch("modus_operandi_id")
-  const trainId = watch("train_id")
-  const stationId = watch("station_id")
-  const [trainSelectValue, setTrainSelectValue] = useState<string>("")
-  const [stationSelectValue, setStationSelectValue] = useState<string>("")
+  // Accused & Bailer Lists
+  const [accusedList, setAccusedList] = useState<PersonDetail[]>([createEmptyPerson()])
+  const [bailerList, setBailerList] = useState<PersonDetail[]>([createEmptyPerson()])
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      if (!currentUser) {
-        router.push("/login")
-        return
-      }
-      setUser(currentUser)
-
-      const data = await getMasterData()
-      setMasterData(data)
-
-      if (!isEdit && currentUser.police_station_id) {
-        const nextFIR = await getNextFIRNumber(currentUser.police_station_id)
-        setValue("fir_number", nextFIR)
-        setValue("police_station_id", currentUser.police_station_id)
-        setValue("railway_district_id", currentUser.railway_district_id || 0)
-      }
-
-      if (initialData) {
-        Object.keys(initialData).forEach((key) => {
-          if (key === "incident_date") {
-            setValue(key, new Date(initialData[key]))
-          } else {
-            setValue(key as any, initialData[key])
-          }
-        })
-        if (initialData.train_id) {
-          setTrainSelectValue(initialData.train_id.toString())
-        }
-        if (initialData.station_id) {
-          setStationSelectValue(initialData.station_id.toString())
-        }
-      }
-    } catch (error) {
-      console.error("Error loading form data:", error)
+  function createEmptyPerson(): PersonDetail {
+    return {
+      id: crypto.randomUUID(),
+      name: "",
+      aadhaar_no: "",
+      gender: "",
+      dob: "",
+      age: "",
+      pan_no: "",
+      father_name: "",
+      state: "",
+      district: "",
+      full_address: "",
+      pin_code: "",
+      mobile: "",
+      email: "",
     }
   }
 
-  useEffect(() => {
-    if (trainId && masterData) {
-      const train = masterData.trains.find((t: any) => t.id === trainId)
-      if (train) {
-        setValue("train_name_manual", train.train_name)
-        setValue("train_number_manual", train.train_number)
-      }
+  // Accused Functions
+  const addAccused = () => setAccusedList([...accusedList, createEmptyPerson()])
+  const removeAccused = (id: string) => {
+    if (accusedList.length > 1) {
+      setAccusedList(accusedList.filter((p) => p.id !== id))
     }
-  }, [trainId, masterData, setValue])
+  }
+  const updateAccused = (id: string, field: keyof PersonDetail, value: string) => {
+    setAccusedList(accusedList.map((p) => (p.id === id ? { ...p, [field]: value } : p)))
+  }
 
-  useEffect(() => {
-    if (stationId && masterData) {
-      const station = masterData.stations.find((s: any) => s.id === stationId)
-      if (station) {
-        setValue("station_name_manual", station.station_name)
-      }
+  // Bailer Functions
+  const addBailer = () => setBailerList([...bailerList, createEmptyPerson()])
+  const removeBailer = (id: string) => {
+    if (bailerList.length > 1) {
+      setBailerList(bailerList.filter((p) => p.id !== id))
     }
-  }, [stationId, masterData, setValue])
+  }
+  const updateBailer = (id: string, field: keyof PersonDetail, value: string) => {
+    setBailerList(bailerList.map((p) => (p.id === id ? { ...p, [field]: value } : p)))
+  }
 
-  const onSubmit = async (data: FIRInput) => {
-    if (!user) return
+  // File Upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    setLoading(true)
     try {
-      const firData = {
-        ...data,
-        incident_date: format(data.incident_date, "yyyy-MM-dd"),
-        law_sections: data.law_sections || [],
-        law_sections_text: masterData?.lawSections
-          .filter((ls: any) => data.law_sections?.includes(ls.id))
-          .map((ls: any) => ls.section_code)
-          .join(", "),
-        created_by: user.id,
+      setUploadingFile(true)
+      const fileExt = file.name.split(".").pop()
+      const fileName = `${crypto.randomUUID()}.${fileExt}`
+      const filePath = `fir-copies/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(filePath, file)
+
+      if (uploadError) throw uploadError
+
+      const { data } = supabase.storage.from("documents").getPublicUrl(filePath)
+      setFirCopyUrl(data.publicUrl)
+
+      toast({
+        title: "Success",
+        description: "FIR copy uploaded successfully",
+      })
+    } catch (error) {
+      console.error("Upload error:", error)
+      toast({
+        title: "Error",
+        description: "Failed to upload file",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  // Form Submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!firNo || !firDate || !section) {
+      toast({
+        title: "Error",
+        description: "Please fill all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+      const user = await getCurrentUser()
+
+      if (!user?.police_station_id) {
+        throw new Error("User not authenticated")
       }
 
-      let result
-      if (isEdit && initialData?.id) {
-        const { data: updated, error } = await supabase
-          .from("fir_records")
-          .update(firData)
-          .eq("id", initialData.id)
-          .select()
-          .single()
-
-        if (error) throw error
-        result = updated
-
-        await createAuditLog({
-          userId: user.id,
-          action: "UPDATE",
-          table: "fir_records",
-          recordId: initialData.id,
-          summary: `FIR ${data.fir_number} updated`,
+      // Insert FIR
+      const { data: firData, error: firError } = await supabase
+        .from("fir_records")
+        .insert({
+          police_station_id: user.police_station_id,
+          fir_number: firNo,
+          incident_date: firDate,
+          incident_time: incidentTime,
+          accused_type: accusedType,
+          state,
+          zone,
+          district,
+          thana,
+          court,
+          section,
+          train_no: trainNo,
+          train_name: trainName,
+          station_code: stationCode,
+          station_name: stationName,
+          brief_description: brief,
+          fir_copy_url: firCopyUrl,
+          case_status: "registered",
         })
-      } else {
-        const { data: inserted, error } = await supabase
-          .from("fir_records")
-          .insert(firData)
-          .select()
-          .single()
+        .select()
+        .single()
 
-        if (error) throw error
-        result = inserted
+      if (firError) throw firError
 
-        await createAuditLog({
-          userId: user.id,
-          action: "CREATE",
-          table: "fir_records",
-          recordId: result.id,
-          summary: `FIR ${data.fir_number} created`,
-        })
+      // Insert Accused
+      for (const accused of accusedList) {
+        if (accused.name) {
+          await supabase.from("accused_details").insert({
+            fir_id: firData.id,
+            ...accused,
+            id: undefined,
+          })
+        }
+      }
 
-        setNewFIRId(result.id)
-        setShowAddAccusedDialog(true)
+      // Insert Bailers
+      for (const bailer of bailerList) {
+        if (bailer.name) {
+          await supabase.from("bailer_details").insert({
+            fir_id: firData.id,
+            ...bailer,
+            id: undefined,
+          })
+        }
       }
 
       toast({
         title: "Success",
-        description: isEdit ? "FIR updated successfully" : "FIR created successfully",
+        description: "FIR created successfully",
       })
 
-      if (!isEdit && !showAddAccusedDialog) {
-        setTimeout(() => router.push("/fir/list"), 1500)
-      }
+      router.push("/fir/list")
     } catch (error: any) {
+      console.error("Submit error:", error)
       toast({
         title: "Error",
-        description: error.message || "Failed to save FIR",
+        description: error.message || "Failed to create FIR",
         variant: "destructive",
       })
     } finally {
@@ -194,321 +230,437 @@ export function FIRForm({ initialData, isEdit = false }: FIRFormProps) {
     }
   }
 
-  if (!masterData || !user) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading form...</p>
-        </div>
-      </div>
-    )
-  }
-
-  const selectedModus = masterData.modusOperandi.find(
-    (m: any) => m.id === modusOperandiId
-  )
-  const showPropertySection =
-    selectedModus?.name?.toLowerCase().includes("theft") ||
-    selectedModus?.name?.toLowerCase().includes("robbery")
-
   return (
-    <>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* Basic Details */}
-        <div className="space-y-4 sm:space-y-5">
-          <h2 className="form-section-title text-lg sm:text-xl">Basic Details</h2>
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
-            <div className="space-y-2.5">
-              <Label htmlFor="fir_number" className="text-base">
-                FIR Number <span className="text-danger font-bold">*</span>
-              </Label>
-              <Input
-                id="fir_number"
-                {...register("fir_number")}
-                readOnly={isEdit}
-              />
-              {errors.fir_number && (
-                <p className="text-sm text-danger font-medium">{errors.fir_number.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="incident_date">
-                Incident Date <span className="text-danger">*</span>
-              </Label>
-              <Input
-                id="incident_date"
-                type="date"
-                max={format(new Date(), "yyyy-MM-dd")}
-                {...register("incident_date", {
-                  valueAsDate: true,
-                })}
-              />
-              {errors.incident_date && (
-                <p className="text-sm text-danger">{errors.incident_date.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="incident_time">
-                Incident Time <span className="text-danger">*</span>
-              </Label>
-              <Input
-                id="incident_time"
-                type="time"
-                {...register("incident_time")}
-              />
-              {errors.incident_time && (
-                <p className="text-sm text-danger">{errors.incident_time.message}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Location */}
-        <div className="space-y-4 sm:space-y-5">
-          <h2 className="form-section-title text-lg sm:text-xl">Location Details</h2>
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="train_id">Train</Label>
-              <Select
-                value={trainSelectValue}
-                onValueChange={(value) => {
-                  setTrainSelectValue(value)
-                  if (value === "manual") {
-                    setValue("train_id", undefined)
-                  } else {
-                    setValue("train_id", parseInt(value))
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select train" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">Manual Entry</SelectItem>
-                  {masterData.trains.map((train: any) => (
-                    <SelectItem key={train.id} value={train.id.toString()}>
-                      {train.train_number} - {train.train_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {trainSelectValue === "manual" && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="train_number_manual">Train Number</Label>
-                  <Input
-                    id="train_number_manual"
-                    {...register("train_number_manual")}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="train_name_manual">Train Name</Label>
-                  <Input
-                    id="train_name_manual"
-                    {...register("train_name_manual")}
-                  />
-                </div>
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="station_id">Station</Label>
-              <Select
-                value={stationSelectValue}
-                onValueChange={(value) => {
-                  setStationSelectValue(value)
-                  if (value === "manual") {
-                    setValue("station_id", undefined)
-                  } else {
-                    setValue("station_id", parseInt(value))
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select station" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="manual">Manual Entry</SelectItem>
-                  {masterData.stations.map((station: any) => (
-                    <SelectItem key={station.id} value={station.id.toString()}>
-                      {station.station_code} - {station.station_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {stationSelectValue === "manual" && (
-              <div className="space-y-2">
-                <Label htmlFor="station_name_manual">Station Name</Label>
-                <Input
-                  id="station_name_manual"
-                  {...register("station_name_manual")}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Crime Details */}
-        <div className="space-y-4 sm:space-y-5">
-          <h2 className="form-section-title text-lg sm:text-xl">Crime Details</h2>
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="modus_operandi_id">
-                Modus Operandi <span className="text-danger">*</span>
-              </Label>
-              <Select
-                value={modusOperandiId?.toString() || ""}
-                onValueChange={(value) =>
-                  setValue("modus_operandi_id", parseInt(value))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select modus operandi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {masterData.modusOperandi.map((mo: any) => (
-                    <SelectItem key={mo.id} value={mo.id.toString()}>
-                      {mo.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.modus_operandi_id && (
-                <p className="text-sm text-danger">
-                  {errors.modus_operandi_id.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="law_sections">
-                Law Sections <span className="text-danger">*</span>
-              </Label>
-              <MultiSelect
-                options={masterData.lawSections.map((ls: any) => ({
-                  label: `${ls.section_code} - ${ls.description}`,
-                  value: ls.id,
-                }))}
-                selected={watch("law_sections") || []}
-                onChange={(values) =>
-                  setValue(
-                    "law_sections",
-                    values.map((v) => (typeof v === "string" ? parseInt(v) : v))
-                  )
-                }
-                placeholder="Select law sections"
-              />
-              {errors.law_sections && (
-                <p className="text-sm text-danger">{errors.law_sections.message}</p>
-              )}
-            </div>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Case Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Case Details</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="brief_description">
-              Brief Description <span className="text-danger">*</span>
-            </Label>
-            <Textarea
-              id="brief_description"
-              rows={3}
-              {...register("brief_description")}
-              placeholder="50-500 characters"
-            />
-            {errors.brief_description && (
-              <p className="text-sm text-danger">
-                {errors.brief_description.message}
-              </p>
-            )}
+            <Label>Accused Type <span className="text-red-500">*</span></Label>
+            <Select value={accusedType} onValueChange={setAccusedType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="individual">Individual</SelectItem>
+                <SelectItem value="group">Group</SelectItem>
+                <SelectItem value="organization">Organization</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="detailed_description">Detailed Description</Label>
-            <Textarea
-              id="detailed_description"
-              rows={5}
-              {...register("detailed_description")}
-              placeholder="Maximum 2000 characters"
+            <Label>State <span className="text-red-500">*</span></Label>
+            <Select value={state} onValueChange={setState}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select state" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="maharashtra">Maharashtra</SelectItem>
+                <SelectItem value="delhi">Delhi</SelectItem>
+                <SelectItem value="karnataka">Karnataka</SelectItem>
+                <SelectItem value="uttar_pradesh">Uttar Pradesh</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Zone</Label>
+            <Select value={zone} onValueChange={setZone}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select zone" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="zone1">Zone 1</SelectItem>
+                <SelectItem value="zone2">Zone 2</SelectItem>
+                <SelectItem value="zone3">Zone 3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>District <span className="text-red-500">*</span></Label>
+            <Select value={district} onValueChange={setDistrict}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select district" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mumbai">Mumbai</SelectItem>
+                <SelectItem value="pune">Pune</SelectItem>
+                <SelectItem value="nagpur">Nagpur</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Thana <span className="text-red-500">*</span></Label>
+            <Select value={thana} onValueChange={setThana}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select thana" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="thana1">Thana 1</SelectItem>
+                <SelectItem value="thana2">Thana 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Court</Label>
+            <Select value={court} onValueChange={setCourt}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select court" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="district_court_1">District Court 1</SelectItem>
+                <SelectItem value="district_court_2">District Court 2</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Section <span className="text-red-500">*</span></Label>
+            <Input
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              placeholder="e.g., IPC 302, 307"
+              required
             />
-            {errors.detailed_description && (
-              <p className="text-sm text-danger">
-                {errors.detailed_description.message}
-              </p>
-            )}
           </div>
-        </div>
 
-        {/* Property Section */}
-        {showPropertySection && (
-          <div className="space-y-4 sm:space-y-5">
-            <h2 className="form-section-title text-lg sm:text-xl">Property Details</h2>
-            <div className="grid gap-4 sm:gap-5 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="property_stolen">Property Stolen</Label>
-                <Textarea
-                  id="property_stolen"
-                  rows={3}
-                  {...register("property_stolen")}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="estimated_value">Estimated Value (₹)</Label>
-                <Input
-                  id="estimated_value"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  {...register("estimated_value", { valueAsNumber: true })}
-                />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label>FIR No. <span className="text-red-500">*</span></Label>
+            <Input
+              value={firNo}
+              onChange={(e) => setFirNo(e.target.value)}
+              placeholder="Enter FIR number"
+              required
+            />
           </div>
-        )}
 
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t-2 border-primary/20">
-          <Button type="submit" disabled={loading} size="lg" className="w-full sm:w-auto sm:min-w-[150px]">
-            {loading ? "Saving..." : isEdit ? "Update FIR" : "Submit FIR"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            size="lg"
-            className="w-full sm:w-auto sm:min-w-[120px]"
-          >
-            Cancel
-          </Button>
-        </div>
-      </form>
+          <div className="space-y-2">
+            <Label>Date of FIR <span className="text-red-500">*</span></Label>
+            <Input
+              type="date"
+              value={firDate}
+              onChange={(e) => setFirDate(e.target.value)}
+              required
+            />
+          </div>
 
-      <Dialog open={showAddAccusedDialog} onOpenChange={setShowAddAccusedDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>FIR Created Successfully</DialogTitle>
-            <DialogDescription>
-              Would you like to add accused persons to this FIR now?
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowAddAccusedDialog(false)
-                router.push("/fir/list")
-              }}
-            >
-              Later
-            </Button>
-            <Button
-              onClick={() => {
-                setShowAddAccusedDialog(false)
-                router.push(`/accused/add?fir_id=${newFIRId}`)
-              }}
-            >
-              Add Accused Now
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          <div className="space-y-2">
+            <Label>Timing of Incident</Label>
+            <Input
+              type="time"
+              value={incidentTime}
+              onChange={(e) => setIncidentTime(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Train No.</Label>
+            <Input
+              value={trainNo}
+              onChange={(e) => setTrainNo(e.target.value)}
+              placeholder="Enter train number"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Train Name</Label>
+            <Input
+              value={trainName}
+              onChange={(e) => setTrainName(e.target.value)}
+              placeholder="Enter train name"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Station Code</Label>
+            <Input
+              value={stationCode}
+              onChange={(e) => setStationCode(e.target.value)}
+              placeholder="Enter station code"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Station Name</Label>
+            <Input
+              value={stationName}
+              onChange={(e) => setStationName(e.target.value)}
+              placeholder="Enter station name"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Accused Details */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Accused Details</CardTitle>
+          <Button type="button" onClick={addAccused} variant="outline" size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Accused
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {accusedList.map((accused, index) => (
+            <PersonDetailsForm
+              key={accused.id}
+              person={accused}
+              index={index}
+              label="Accused"
+              onUpdate={(field, value) => updateAccused(accused.id, field, value)}
+              onRemove={() => removeAccused(accused.id)}
+              canRemove={accusedList.length > 1}
+            />
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Bailer Details */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Bailer Details</CardTitle>
+          <Button type="button" onClick={addBailer} variant="outline" size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Bailer
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {bailerList.map((bailer, index) => (
+            <PersonDetailsForm
+              key={bailer.id}
+              person={bailer}
+              index={index}
+              label="Bailer"
+              onUpdate={(field, value) => updateBailer(bailer.id, field, value)}
+              onRemove={() => removeBailer(bailer.id)}
+              canRemove={bailerList.length > 1}
+            />
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Additional Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Additional Information</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Brief Description</Label>
+            <Textarea
+              value={brief}
+              onChange={(e) => setBrief(e.target.value)}
+              placeholder="Enter brief description"
+              rows={6}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachment (FIR Copy)</Label>
+            <Input
+              type="file"
+              onChange={handleFileUpload}
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              disabled={uploadingFile}
+            />
+            {uploadingFile && <p className="text-sm text-muted-foreground">Uploading...</p>}
+            {firCopyUrl && <p className="text-sm text-green-600">✓ File uploaded</p>}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Buttons */}
+      <div className="flex justify-end gap-4">
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={loading}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Submitting...
+            </>
+          ) : (
+            "Submit FIR"
+          )}
+        </Button>
+      </div>
+    </form>
   )
 }
 
+// Person Details Subcomponent
+interface PersonDetailsFormProps {
+  person: PersonDetail
+  index: number
+  label: string
+  onUpdate: (field: keyof PersonDetail, value: string) => void
+  onRemove: () => void
+  canRemove: boolean
+}
+
+function PersonDetailsForm({
+  person,
+  index,
+  label,
+  onUpdate,
+  onRemove,
+  canRemove,
+}: PersonDetailsFormProps) {
+  return (
+    <div className="border rounded-lg p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold">
+          {label} #{index + 1}
+        </h4>
+        {canRemove && (
+          <Button type="button" onClick={onRemove} variant="destructive" size="sm">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label>Name</Label>
+          <Input
+            value={person.name}
+            onChange={(e) => onUpdate("name", e.target.value)}
+            placeholder="Enter name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Aadhaar No.</Label>
+          <Input
+            value={person.aadhaar_no}
+            onChange={(e) => onUpdate("aadhaar_no", e.target.value)}
+            placeholder="12-digit Aadhaar"
+            maxLength={12}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Gender</Label>
+          <Select value={person.gender} onValueChange={(v) => onUpdate("gender", v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Date of Birth</Label>
+          <Input
+            type="date"
+            value={person.dob}
+            onChange={(e) => onUpdate("dob", e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Age</Label>
+          <Input
+            type="number"
+            value={person.age}
+            onChange={(e) => onUpdate("age", e.target.value)}
+            placeholder="Age"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>PAN No.</Label>
+          <Input
+            value={person.pan_no}
+            onChange={(e) => onUpdate("pan_no", e.target.value)}
+            placeholder="10-digit PAN"
+            maxLength={10}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Father's Name</Label>
+          <Input
+            value={person.father_name}
+            onChange={(e) => onUpdate("father_name", e.target.value)}
+            placeholder="Father's name"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>State</Label>
+          <Select value={person.state} onValueChange={(v) => onUpdate("state", v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="maharashtra">Maharashtra</SelectItem>
+              <SelectItem value="delhi">Delhi</SelectItem>
+              <SelectItem value="karnataka">Karnataka</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>District</Label>
+          <Input
+            value={person.district}
+            onChange={(e) => onUpdate("district", e.target.value)}
+            placeholder="District"
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <Label>Full Address</Label>
+          <Input
+            value={person.full_address}
+            onChange={(e) => onUpdate("full_address", e.target.value)}
+            placeholder="Full address"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>PIN Code</Label>
+          <Input
+            value={person.pin_code}
+            onChange={(e) => onUpdate("pin_code", e.target.value)}
+            placeholder="6-digit PIN"
+            maxLength={6}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Mobile</Label>
+          <Input
+            value={person.mobile}
+            onChange={(e) => onUpdate("mobile", e.target.value)}
+            placeholder="10-digit mobile"
+            maxLength={10}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Email</Label>
+          <Input
+            type="email"
+            value={person.email}
+            onChange={(e) => onUpdate("email", e.target.value)}
+            placeholder="Email address"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}

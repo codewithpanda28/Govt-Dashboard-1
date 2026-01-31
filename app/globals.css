@@ -73,6 +73,22 @@
       @apply text-base;
     }
   }
+
+  .page-wrapper {
+    @apply min-h-screen bg-background;
+  }
+
+  .page-container {
+    @apply p-4 lg:p-6;
+  }
+
+  .page-section {
+    @apply space-y-6;
+  }
+
+  .page-title {
+    @apply text-2xl font-bold text-primary;
+  }
 }
 
 

@@ -124,49 +124,51 @@ export default function TestLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader>
-          <CardTitle>Direct Login Test</CardTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            This page tests login directly without form validation. Use this to debug login issues.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="test-email">Email</Label>
-            <Input
-              id="test-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="test-password">Password</Label>
-            <Input
-              id="test-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-          <Button onClick={testLogin} disabled={loading} className="w-full">
-            {loading ? "Testing..." : "Test Login"}
-          </Button>
-
-          {result && (
-            <div className="mt-6 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold mb-2">Test Results:</h3>
-              <pre className="text-sm whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
-                {result}
-              </pre>
+    <div className="page-wrapper">
+      <div className="page-container">
+        <Card className="max-w-3xl mx-auto">
+          <CardHeader>
+            <CardTitle>Direct Login Test</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              This page tests login directly without form validation. Use this to debug login issues.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="test-email">Email</Label>
+              <Input
+                id="test-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <div className="space-y-2">
+              <Label htmlFor="test-password">Password</Label>
+              <Input
+                id="test-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <Button onClick={testLogin} disabled={loading} className="w-full">
+              {loading ? "Testing..." : "Test Login"}
+            </Button>
+
+            {result && (
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <h3 className="font-semibold mb-2">Test Results:</h3>
+                <pre className="text-sm whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                  {result}
+                </pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

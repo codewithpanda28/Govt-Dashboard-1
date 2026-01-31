@@ -16,13 +16,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { 
-  Search, Eye, Users, RefreshCw, Phone, AlertCircle,
-  ChevronLeft, Filter, UserCheck, UserX, User, HelpCircle,
-  Shield, Download
+  Search, Eye, Shield, RefreshCw, Phone, AlertCircle, MapPin,
+  ChevronLeft, Filter, Download, Calendar, Users
 } from "lucide-react"
 import { toast } from "sonner"
 
-interface Accused {
+interface Bailer {
   id: number
   fir_id: number
   name: string
@@ -32,23 +31,54 @@ interface Accused {
   mobile: string
   aadhaar: string
   full_address: string
-  accused_type: string
   created_at: string
   fir_number?: string
 }
 
-export default function AccusedListPage() {
+export default function BailListPage() {
   const router = useRouter()
-  const [accusedList, setAccusedList] = useState<Accused[]>([])
+  const [bailerList, setBailerList] = useState<Bailer[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
 
   useEffect(() => {
     checkAuth()
-    loadAccusedList()
+    loadBailerList()
+  }, [])
+
+  // Check for updates from edit page
+  useEffect(() => {
+    const checkForEditUpdate = () => {
+      const updateData = localStorage.getItem('fir_updated')
+      if (updateData) {
+        localStorage.removeItem('fir_updated')
+        loadBailerList(true)
+      }
+    }
+
+    checkForEditUpdate()
+
+    const handleFocus = () => checkForEditUpdate()
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [])
+
+  // Check on visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const updateData = localStorage.getItem('fir_updated')
+        if (updateData) {
+          localStorage.removeItem('fir_updated')
+          loadBailerList(true)
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   const checkAuth = async () => {
@@ -58,7 +88,7 @@ export default function AccusedListPage() {
     }
   }
 
-  const loadAccusedList = async (isRefresh = false) => {
+  const loadBailerList = async (isRefresh = false) => {
     try {
       if (isRefresh) {
         setRefreshing(true)
@@ -68,23 +98,23 @@ export default function AccusedListPage() {
       setError(null)
 
       const { data, error: fetchError } = await supabase
-        .from("accused_details")
+        .from("bailer_details")
         .select(`*, fir_records (id, fir_number)`)
         .order("created_at", { ascending: false })
 
       if (fetchError) {
         // Fallback to simple query
         const { data: simpleData, error: simpleError } = await supabase
-          .from("accused_details")
+          .from("bailer_details")
           .select("*")
           .order("created_at", { ascending: false })
 
         if (simpleError) {
           setError(simpleError.message)
-          toast.error("Failed to load accused list")
+          toast.error("Failed to load bailer list")
           return
         }
-        setAccusedList(simpleData || [])
+        setBailerList(simpleData || [])
         if (isRefresh) toast.success("List refreshed!")
         return
       }
@@ -94,7 +124,7 @@ export default function AccusedListPage() {
         fir_number: item.fir_records?.fir_number || `FIR-${item.fir_id}`
       })) || []
 
-      setAccusedList(mappedData)
+      setBailerList(mappedData)
       if (isRefresh) toast.success("List refreshed!")
     } catch (err: any) {
       setError(err.message)
@@ -106,62 +136,50 @@ export default function AccusedListPage() {
   }
 
   const handleRefresh = () => {
-    loadAccusedList(true)
+    loadBailerList(true)
   }
 
-  const filteredList = accusedList.filter(accused => {
+  const filteredList = bailerList.filter(bailer => {
     const search = searchQuery.toLowerCase()
-    const matchesSearch = !searchQuery || 
-      accused.name?.toLowerCase().includes(search) ||
-      accused.father_name?.toLowerCase().includes(search) ||
-      accused.mobile?.includes(search) ||
-      accused.fir_number?.toLowerCase().includes(search)
-    
-    const matchesStatus = statusFilter === "all" || 
-      accused.accused_type?.toLowerCase() === statusFilter.toLowerCase()
-    
-    return matchesSearch && matchesStatus
+    return !searchQuery || 
+      bailer.name?.toLowerCase().includes(search) ||
+      bailer.father_name?.toLowerCase().includes(search) ||
+      bailer.mobile?.includes(search) ||
+      bailer.fir_number?.toLowerCase().includes(search) ||
+      bailer.full_address?.toLowerCase().includes(search)
   })
-
-  const getStatusBadge = (status: string) => {
-    const statusLower = status?.toLowerCase() || "unknown"
-    const config: Record<string, { bg: string, icon: any }> = {
-      unknown: { bg: "bg-gray-100 text-gray-700 border-gray-200", icon: HelpCircle },
-      known: { bg: "bg-blue-100 text-blue-700 border-blue-200", icon: User },
-      arrested: { bg: "bg-green-100 text-green-700 border-green-200", icon: Shield },
-      absconding: { bg: "bg-red-100 text-red-700 border-red-200", icon: UserX },
-      bailed: { bg: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: UserCheck },
-    }
-    const { bg, icon: Icon } = config[statusLower] || config.unknown
-    return (
-      <Badge className={`${bg} font-medium text-xs border`}>
-        <Icon className="h-3 w-3 mr-1" />
-        {status || "Unknown"}
-      </Badge>
-    )
-  }
 
   const getInitials = (name: string) => {
     return name?.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || "?"
   }
 
-  const clearFilters = () => {
-    setSearchQuery("")
-    setStatusFilter("all")
+  const formatDate = (date: string) => {
+    if (!date) return "N/A"
+    try {
+      return new Date(date).toLocaleDateString("en-IN", {
+        day: "2-digit", month: "short", year: "numeric"
+      })
+    } catch {
+      return date
+    }
   }
 
-  const hasActiveFilters = searchQuery || statusFilter !== "all"
+  const clearFilters = () => {
+    setSearchQuery("")
+  }
+
+  const hasActiveFilters = searchQuery.length > 0
 
   const exportToCSV = () => {
-    const headers = ["Name", "Father Name", "Age", "Gender", "Mobile", "FIR Number", "Status"]
-    const rows = filteredList.map(a => [
-      a.name || "",
-      a.father_name || "",
-      a.age || "",
-      a.gender || "",
-      a.mobile || "",
-      a.fir_number || "",
-      a.accused_type || ""
+    const headers = ["Name", "Father Name", "Mobile", "Aadhaar", "Address", "FIR Number", "Date"]
+    const rows = filteredList.map(b => [
+      b.name || "",
+      b.father_name || "",
+      b.mobile || "",
+      b.aadhaar || "",
+      b.full_address || "",
+      b.fir_number || "",
+      formatDate(b.created_at)
     ])
 
     const csvContent = [
@@ -172,19 +190,17 @@ export default function AccusedListPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const link = document.createElement("a")
     link.href = URL.createObjectURL(blob)
-    link.download = `Accused_List_${new Date().toISOString().split("T")[0]}.csv`
+    link.download = `Bailer_List_${new Date().toISOString().split("T")[0]}.csv`
     link.click()
     toast.success("CSV exported successfully!")
   }
 
   // Statistics
   const stats = {
-    total: accusedList.length,
-    known: accusedList.filter(a => a.accused_type?.toLowerCase() === 'known').length,
-    arrested: accusedList.filter(a => a.accused_type?.toLowerCase() === 'arrested').length,
-    absconding: accusedList.filter(a => a.accused_type?.toLowerCase() === 'absconding').length,
-    bailed: accusedList.filter(a => a.accused_type?.toLowerCase() === 'bailed').length,
-    unknown: accusedList.filter(a => !a.accused_type || a.accused_type?.toLowerCase() === 'unknown').length,
+    total: bailerList.length,
+    withMobile: bailerList.filter(b => b.mobile).length,
+    withAddress: bailerList.filter(b => b.full_address).length,
+    withAadhaar: bailerList.filter(b => b.aadhaar).length,
   }
 
   return (
@@ -197,13 +213,13 @@ export default function AccusedListPage() {
             <Button variant="outline" size="icon" onClick={() => router.push('/dashboard')}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Users className="h-6 w-6 text-primary" />
+            <div className="p-2 bg-yellow-100 rounded-lg">
+              <Shield className="h-6 w-6 text-yellow-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Accused List</h1>
+              <h1 className="text-2xl font-bold">Bailer List</h1>
               <p className="text-muted-foreground text-sm">
-                Total: {accusedList.length} | Showing: {filteredList.length} records
+                Total: {bailerList.length} | Showing: {filteredList.length} records
               </p>
             </div>
           </div>
@@ -233,14 +249,12 @@ export default function AccusedListPage() {
         )}
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total", value: stats.total, color: "text-primary", icon: Users },
-            { label: "Known", value: stats.known, color: "text-blue-600", icon: User },
-            { label: "Arrested", value: stats.arrested, color: "text-green-600", icon: Shield },
-            { label: "Absconding", value: stats.absconding, color: "text-red-600", icon: UserX },
-            { label: "Bailed", value: stats.bailed, color: "text-yellow-600", icon: UserCheck },
-            { label: "Unknown", value: stats.unknown, color: "text-gray-600", icon: HelpCircle },
+            { label: "Total Bailers", value: stats.total, color: "text-yellow-600", icon: Shield },
+            { label: "With Mobile", value: stats.withMobile, color: "text-green-600", icon: Phone },
+            { label: "With Address", value: stats.withAddress, color: "text-blue-600", icon: MapPin },
+            { label: "With Aadhaar", value: stats.withAadhaar, color: "text-purple-600", icon: Users },
           ].map((stat, i) => (
             <Card key={i} className="border-2">
               <CardContent className="py-4 text-center">
@@ -258,38 +272,24 @@ export default function AccusedListPage() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Filter className="h-5 w-5 text-primary" />
-                Filters
+                Search
               </CardTitle>
               {hasActiveFilters && (
                 <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  Clear All
+                  Clear
                 </Button>
               )}
             </div>
           </CardHeader>
           <CardContent className="pt-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search name, mobile, FIR number..."
-                  className="pl-9"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border rounded-lg bg-background min-w-[150px]"
-              >
-                <option value="all">All Types</option>
-                <option value="unknown">Unknown</option>
-                <option value="known">Known</option>
-                <option value="arrested">Arrested</option>
-                <option value="absconding">Absconding</option>
-                <option value="bailed">Bailed</option>
-              </select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search name, mobile, FIR number, address..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
           </CardContent>
         </Card>
@@ -298,29 +298,29 @@ export default function AccusedListPage() {
         <Card className="border-2">
           <CardHeader className="bg-muted/30 border-b pb-4">
             <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Accused Records
+              <Shield className="h-5 w-5 text-yellow-600" />
+              Bailer Records
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
               <div className="py-16 text-center">
-                <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full mx-auto"></div>
-                <p className="mt-4 text-muted-foreground">Loading accused list...</p>
+                <div className="animate-spin h-10 w-10 border-4 border-yellow-600 border-t-transparent rounded-full mx-auto"></div>
+                <p className="mt-4 text-muted-foreground">Loading bailers...</p>
               </div>
             ) : filteredList.length === 0 ? (
               <div className="py-16 text-center">
-                <Users className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="font-semibold text-lg">No accused found</p>
+                <Shield className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="font-semibold text-lg">No bailers found</p>
                 <p className="text-muted-foreground mb-6">
-                  {accusedList.length === 0 
-                    ? "Add accused through FIR registration" 
-                    : "Try adjusting your filters"
+                  {bailerList.length === 0 
+                    ? "Add bailers through FIR registration" 
+                    : "Try adjusting your search"
                   }
                 </p>
-                {accusedList.length > 0 && (
+                {hasActiveFilters && (
                   <Button variant="outline" onClick={clearFilters}>
-                    Clear Filters
+                    Clear Search
                   </Button>
                 )}
               </div>
@@ -331,42 +331,46 @@ export default function AccusedListPage() {
                     <TableRow className="bg-muted/50">
                       <TableHead className="font-bold w-12"></TableHead>
                       <TableHead className="font-bold">NAME</TableHead>
-                      <TableHead className="font-bold">AGE / GENDER</TableHead>
                       <TableHead className="font-bold">MOBILE</TableHead>
+                      <TableHead className="font-bold">ADDRESS</TableHead>
                       <TableHead className="font-bold">FIR NUMBER</TableHead>
-                      <TableHead className="font-bold">STATUS</TableHead>
+                      <TableHead className="font-bold">DATE</TableHead>
                       <TableHead className="font-bold text-center">ACTION</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredList.map((accused) => (
+                    {filteredList.map((bailer) => (
                       <TableRow 
-                        key={accused.id} 
+                        key={bailer.id} 
                         className="hover:bg-muted/50 cursor-pointer transition-colors"
-                        onClick={() => router.push(`/fir/${accused.fir_id}`)}
+                        onClick={() => router.push(`/fir/${bailer.fir_id}`)}
                       >
                         <TableCell>
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
-                            {getInitials(accused.name)}
+                          <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-700 font-bold text-sm">
+                            {getInitials(bailer.name)}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-semibold">{accused.name || "N/A"}</p>
-                            <p className="text-xs text-muted-foreground">S/o {accused.father_name || "N/A"}</p>
+                            <p className="font-semibold">{bailer.name || "N/A"}</p>
+                            <p className="text-xs text-muted-foreground">S/o {bailer.father_name || "N/A"}</p>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{accused.age || "-"} yrs</p>
-                            <p className="text-xs text-muted-foreground">{accused.gender || "-"}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {accused.mobile ? (
+                          {bailer.mobile ? (
                             <div className="flex items-center gap-2">
                               <Phone className="h-4 w-4 text-muted-foreground" />
-                              <span>{accused.mobile}</span>
+                              <span>{bailer.mobile}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {bailer.full_address ? (
+                            <div className="flex items-start gap-2 max-w-[200px]">
+                              <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                              <span className="line-clamp-2 text-sm">{bailer.full_address}</span>
                             </div>
                           ) : (
                             <span className="text-muted-foreground">-</span>
@@ -374,17 +378,22 @@ export default function AccusedListPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-semibold text-primary">
-                            {accused.fir_number}
+                            {bailer.fir_number}
                           </Badge>
                         </TableCell>
-                        <TableCell>{getStatusBadge(accused.accused_type)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm">{formatDate(bailer.created_at)}</span>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-center">
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation()
-                              router.push(`/fir/${accused.fir_id}`)
+                              router.push(`/fir/${bailer.fir_id}`)
                             }}
                           >
                             <Eye className="h-4 w-4 mr-1" />
@@ -403,7 +412,7 @@ export default function AccusedListPage() {
         {/* Results Count */}
         {!loading && filteredList.length > 0 && (
           <p className="text-sm text-muted-foreground text-center">
-            Showing {filteredList.length} of {accusedList.length} accused
+            Showing {filteredList.length} of {bailerList.length} bailer{bailerList.length !== 1 ? "s" : ""}
             {hasActiveFilters && " (filtered)"}
           </p>
         )}

@@ -19,9 +19,9 @@ function UpdateBailContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-wrapper">
       <Header user={user} title="Update Bail Status" />
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="page-container">
         <Card className="max-w-6xl mx-auto">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
@@ -59,7 +59,7 @@ export default function UpdateBailPage() {
 
 function PageLoading() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="page-wrapper flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
     </div>
   )

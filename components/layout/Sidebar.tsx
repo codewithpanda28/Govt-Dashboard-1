@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   FilePlus,
   FileText,
-  UserPlus,
   Users,
   Scale,
   User,
@@ -24,10 +23,9 @@ import { useState } from "react"
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/fir/add", label: "Add FIR", icon: FilePlus },
-  { href: "/fir/list", label: "My FIRs", icon: FileText },
-  { href: "/accused/add", label: "Add Accused", icon: UserPlus },
+  { href: "/fir/list", label: "FIRs List", icon: FileText },
   { href: "/accused/list", label: "Accused List", icon: Users },
-  { href: "/bail/update", label: "Bail", icon: Scale },
+  { href: "/bail/list", label: "Bail List", icon: Scale },
   { href: "/profile", label: "Profile", icon: User },
 ]
 
@@ -126,5 +124,3 @@ export function Sidebar() {
     </>
   )
 }
-
-

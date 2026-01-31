@@ -86,57 +86,59 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Railway Police Portal</CardTitle>
-          <CardDescription>Enter your credentials to login</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800 whitespace-pre-wrap">
-              {error}
+    <div className="page-wrapper">
+      <div className="page-container">
+        <Card className="w-full max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold">Railway Police Portal</CardTitle>
+            <CardDescription>Enter your credentials to login</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800 whitespace-pre-wrap">
+                {error}
+              </div>
+            )}
+            {message && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                {message}
+              </div>
+            )}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  className="mt-1"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Logging in..." : "Login"}
+              </Button>
+            </form>
+            <div className="mt-4 text-center text-xs text-gray-500">
+              <p>Test: officer1@railpolice.in / Officer@123</p>
             </div>
-          )}
-          {message && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
-              {message}
-            </div>
-          )}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                className="mt-1"
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Logging in..." : "Login"}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-xs text-gray-500">
-            <p>Test: officer1@railpolice.in / Officer@123</p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

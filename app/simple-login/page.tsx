@@ -150,72 +150,74 @@ export default function SimpleLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl">Simple Login Test</CardTitle>
-          <p className="text-sm text-muted-foreground mt-2">
-            This page directly tests login without any form validation. It will show you exactly what's wrong.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              className="text-base"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              className="text-base"
-            />
-          </div>
-          <Button 
-            onClick={handleLogin} 
-            disabled={loading} 
-            className="w-full h-12 text-base font-semibold"
-          >
-            {loading ? "Testing Login..." : "Test Login Now"}
-          </Button>
-
-          {step && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200">
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">{step}</p>
+    <div className="page-wrapper">
+      <div className="page-container">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="text-2xl">Simple Login Test</CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              This page directly tests login without any form validation. It will show you exactly what's wrong.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                className="text-base"
+              />
             </div>
-          )}
-
-          {message && (
-            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
-              <h3 className="font-semibold mb-2">Results:</h3>
-              <pre className="text-sm whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
-                {message}
-              </pre>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="text-base"
+              />
             </div>
-          )}
+            <Button 
+              onClick={handleLogin} 
+              disabled={loading} 
+              className="w-full h-12 text-base font-semibold"
+            >
+              {loading ? "Testing Login..." : "Test Login Now"}
+            </Button>
 
-          <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-            <h3 className="font-semibold mb-2">Instructions:</h3>
-            <ol className="list-decimal list-inside space-y-1 text-sm">
-              <li>Enter your email and password above</li>
-              <li>Click "Test Login Now"</li>
-              <li>Read the results - it will tell you exactly what's wrong</li>
-              <li>If there are errors, copy the SQL fixes shown and run them in Supabase</li>
-              <li>Try again after fixing</li>
-            </ol>
-          </div>
-        </CardContent>
-      </Card>
+            {step && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200">
+                <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">{step}</p>
+              </div>
+            )}
+
+            {message && (
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border">
+                <h3 className="font-semibold mb-2">Results:</h3>
+                <pre className="text-sm whitespace-pre-wrap font-mono max-h-96 overflow-y-auto">
+                  {message}
+                </pre>
+              </div>
+            )}
+
+            <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <h3 className="font-semibold mb-2">Instructions:</h3>
+              <ol className="list-decimal list-inside space-y-1 text-sm">
+                <li>Enter your email and password above</li>
+                <li>Click "Test Login Now"</li>
+                <li>Read the results - it will tell you exactly what's wrong</li>
+                <li>If there are errors, copy the SQL fixes shown and run them in Supabase</li>
+                <li>Try again after fixing</li>
+              </ol>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -14,10 +14,11 @@ export default function TestNotification() {
   const [open, setOpen] = useState(false)
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-8">Notification Test</h1>
-        
+    <div className="page-wrapper">
+      <div className="page-container">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-8">Notification Test</h1>
+          
         {/* Method 1: Simple Dropdown */}
         <div className="mb-8">
           <p className="mb-2 text-sm text-gray-500">Method 1: DropdownMenu</p>
@@ -82,7 +83,8 @@ export default function TestNotification() {
             </div>
           )}
         </div>
-      </div>
+        </div>
     </div>
   )
+}
 }

@@ -19,9 +19,9 @@ function AddAccusedContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="page-wrapper">
       <Header user={user} title="Add Accused" />
-      <div className="p-4 lg:p-6">
+      <div className="page-container">
         <Card>
           <CardHeader>
             <CardTitle>Add Accused Person</CardTitle>
@@ -56,7 +56,7 @@ export default function AddAccusedPage() {
 
 function PageLoading() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="page-wrapper flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
     </div>
   )
