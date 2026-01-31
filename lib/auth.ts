@@ -12,6 +12,9 @@ export interface User {
   role: 'super_admin' | 'district_admin' | 'station_officer' | 'data_operator' | 'viewer'
   police_station_id: number | null
   railway_district_id: number | null
+  // ✅ ADDED: Aliases for dashboard compatibility
+  thana_id?: number | null
+  district_id?: number | null
   is_active: boolean
   is_first_login: boolean
   last_login: string | null
@@ -51,7 +54,13 @@ export async function getCurrentUser(): Promise<User | null> {
       
       if (inactiveUser) {
         console.warn('⚠️ User found but is_active = false')
-        return inactiveUser as User
+        // ✅ ADD ALIASES before returning
+        const userWithAliases: User = {
+          ...inactiveUser,
+          thana_id: inactiveUser.police_station_id,
+          district_id: inactiveUser.railway_district_id,
+        }
+        return userWithAliases
       }
     }
 
@@ -64,7 +73,14 @@ export async function getCurrentUser(): Promise<User | null> {
       return null
     }
 
-    return data as User
+    // ✅ ADD ALIASES: Map police_station_id to thana_id and railway_district_id to district_id
+    const userWithAliases: User = {
+      ...data,
+      thana_id: data.police_station_id,
+      district_id: data.railway_district_id,
+    }
+
+    return userWithAliases
   } catch (error) {
     console.error('Error getting current user:', error)
     return null
@@ -79,7 +95,7 @@ export async function checkAuth(): Promise<{ user: User | null; redirect: string
   }
 
   // Check if user has required role
-  if (!['station_officer', 'data_operator'].includes(user.role)) {
+  if (!['super_admin', 'district_admin', 'station_officer', 'data_operator'].includes(user.role)) {
     return { user: null, redirect: '/login' }
   }
 
@@ -153,7 +169,12 @@ export async function login(email: string, password: string) {
         throw new Error('User account not found in database. Please contact administrator.')
       }
 
-      user = userData as User
+      // ✅ ADD ALIASES
+      user = {
+        ...userData,
+        thana_id: userData.police_station_id,
+        district_id: userData.railway_district_id,
+      } as User
       console.log('✅ User found via direct query:', user.email)
     } else {
       console.log('✅ User found via getCurrentUser:', user.email)
@@ -170,23 +191,27 @@ export async function login(email: string, password: string) {
       throw new Error('User account is missing role. Please contact administrator.')
     }
 
-    if (!['station_officer', 'data_operator'].includes(user.role)) {
+    // ✅ UPDATED: Allow all valid roles
+    const allowedRoles = ['super_admin', 'district_admin', 'station_officer', 'data_operator']
+    if (!allowedRoles.includes(user.role)) {
       console.error('❌ User role not allowed:', user.role)
       throw new Error(
         `You do not have permission to access this portal. Your role is: ${user.role}. ` +
-        `Required roles: station_officer or data_operator.`
+        `Required roles: ${allowedRoles.join(', ')}.`
       )
     }
 
-    if (user.police_station_id === null) {
-      console.warn('⚠️ User has no police_station_id')
+    if (user.police_station_id === null && user.role === 'station_officer') {
+      console.warn('⚠️ Station officer has no police_station_id')
     }
 
     console.log('✅ User validation passed:', {
       email: user.email,
       role: user.role,
       is_active: user.is_active,
-      is_first_login: user.is_first_login
+      is_first_login: user.is_first_login,
+      thana_id: user.thana_id,
+      district_id: user.district_id,
     })
 
     // Step 5: Update last login (non-blocking)
@@ -273,4 +298,3 @@ export async function changePassword(currentPassword: string, newPassword: strin
     })
   }
 }
-
