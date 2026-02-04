@@ -1,287 +1,429 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase/client"
-import { getCurrentUser } from "@/lib/auth"
-import { Header } from "@/components/layout/Header"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Gavel, ArrowLeft, Send, Loader2, Calendar, Clock, User } from "lucide-react"
-
-const COURTS = [
-  "Railway Court, New Delhi",
-  "Railway Court, Mumbai CST",
-  "Railway Court, Lucknow Junction",
-  "Railway Court, Patna Junction",
-  "Railway Court, Varanasi Junction",
-  "Railway Court, Kolkata",
-  "Railway Court, Chennai"
-]
-
-const HEARING_PURPOSE = [
-  "first_hearing",
-  "bail_hearing",
-  "evidence",
-  "witness",
-  "arguments",
-  "judgment",
-  "other"
-]
-
-const HEARING_STATUS = [
-  "scheduled",
-  "completed", 
-  "adjourned",
-  "cancelled"
-]
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { 
+  ChevronLeft, Save, Loader2, Gavel, Calendar, 
+  Clock, User, Scale, FileText 
+} from "lucide-react"
+import { toast } from "sonner"
 
 export default function AddHearingPage() {
-  const router = useRouter()
   const params = useParams()
+  const router = useRouter()
   const firId = params.id as string
-  
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [firNumber, setFirNumber] = useState("")
 
+  // Form data - All hearing fields
   const [formData, setFormData] = useState({
-    hearing_date: new Date().toISOString().split('T')[0],
+    hearing_date: "",
     hearing_time: "",
+    next_hearing_date: "",
     court_name: "",
-    purpose: "first_hearing",
-    status: "scheduled",
+    judge_name: "",
+    hearing_type: "regular",
+    hearing_status: "scheduled",
+    order_passed: "",
+    attended_by: "",
+    prosecutor_name: "",
+    defense_lawyer: "",
     remarks: ""
   })
 
   useEffect(() => {
-    loadData()
-  }, [])
+    loadInitialData()
+  }, [firId])
 
-  const loadData = async () => {
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      router.push("/login")
-      return
-    }
-    setUser(currentUser)
-
-    const { data } = await supabase
-      .from("fir_records")
-      .select("fir_number, court_name")
-      .eq("id", firId)
-      .single()
-    
-    if (data) {
-      setFirNumber(data.fir_number)
-      // Pre-fill court name from FIR
-      if (data.court_name) {
-        setFormData(prev => ({ ...prev, court_name: data.court_name }))
-      }
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!formData.hearing_date) {
-      alert("Hearing Date is required!")
-      return
-    }
-
-    setLoading(true)
-
+  const loadInitialData = async () => {
     try {
-      const insertData = {
-        fir_id: parseInt(firId),
-        hearing_date: formData.hearing_date,
-        hearing_time: formData.hearing_time || null,
-        court_name: formData.court_name || null,
-        purpose: formData.purpose || null,
-        status: formData.status || "scheduled",
-        remarks: formData.remarks || null
+      setLoading(true)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
       }
 
-      console.log("Inserting hearing:", insertData)
+      const { data: fir, error: firError } = await supabase
+        .from('fir_records')
+        .select('fir_number, court_name')
+        .eq('id', firId)
+        .single()
 
-      // ✅ FIXED: Use correct table name
-      const { error } = await supabase
-        .from("hearing_history")  // <- Changed from hearing_details to hearing_history
-        .insert([insertData])
-
-      if (error) {
-        console.error("Error:", error)
-        throw error
+      if (firError || !fir) {
+        toast.error("FIR not found")
+        router.push('/fir/list')
+        return
       }
 
-      // Set refresh flag for FIR detail page
-      localStorage.setItem('fir_updated', JSON.stringify({
-        firId: firId,
-        timestamp: Date.now(),
-        hearings_updated: true
-      }))
+      setFirNumber(fir.fir_number)
+      
+      // Pre-fill court name from FIR if available
+      if (fir.court_name) {
+        setFormData(prev => ({ ...prev, court_name: fir.court_name }))
+      }
 
-      alert("Hearing added successfully!")
-      router.push(`/fir/${firId}`)
-    } catch (error: any) {
-      console.error("Error:", error)
-      alert(`Error: ${error.message}`)
+    } catch (err: any) {
+      console.error("Error:", err)
+      toast.error("Failed to load data")
     } finally {
       setLoading(false)
     }
   }
 
-  const getPurposeLabel = (value: string) => {
-    const labels: Record<string, string> = {
-      first_hearing: "First Hearing",
-      bail_hearing: "Bail Hearing",
-      evidence: "Evidence",
-      witness: "Witness Examination",
-      arguments: "Arguments",
-      judgment: "Judgment",
-      other: "Other"
-    }
-    return labels[value] || value
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const getStatusLabel = (value: string) => {
-    const labels: Record<string, string> = {
-      scheduled: "Scheduled",
-      completed: "Completed",
-      adjourned: "Adjourned",
-      cancelled: "Cancelled"
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!formData.hearing_date) {
+      toast.error("Hearing date is required")
+      return
     }
-    return labels[value] || value
+
+    try {
+      setSaving(true)
+
+      console.log("💾 Adding hearing to FIR:", firId)
+
+      const hearingData = {
+        fir_id: parseInt(firId),
+        hearing_date: formData.hearing_date,
+        hearing_time: formData.hearing_time || null,
+        next_hearing_date: formData.next_hearing_date || null,
+        court_name: formData.court_name.trim() || null,
+        judge_name: formData.judge_name.trim() || null,
+        hearing_type: formData.hearing_type,
+        hearing_status: formData.hearing_status,
+        order_passed: formData.order_passed.trim() || null,
+        attended_by: formData.attended_by.trim() || null,
+        prosecutor_name: formData.prosecutor_name.trim() || null,
+        defense_lawyer: formData.defense_lawyer.trim() || null,
+        remarks: formData.remarks.trim() || null,
+        created_at: new Date().toISOString()
+      }
+
+      console.log("📤 Insert data:", hearingData)
+
+      const { data, error } = await supabase
+        .from('hearing_history')
+        .insert(hearingData)
+        .select()
+
+      if (error) {
+        console.error("❌ Insert error:", error)
+        toast.error("Failed to add hearing: " + error.message)
+        return
+      }
+
+      console.log("✅ Hearing added:", data)
+
+      // Update next hearing in FIR if provided
+      if (formData.next_hearing_date) {
+        await supabase
+          .from('fir_records')
+          .update({ 
+            next_hearing_date: formData.next_hearing_date,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', firId)
+      }
+
+      toast.success("Hearing added successfully!")
+      
+      localStorage.setItem('fir_updated', JSON.stringify({ 
+        firId, 
+        timestamp: Date.now() 
+      }))
+
+      setTimeout(() => {
+        router.push(`/fir/${firId}`)
+      }, 1000)
+
+    } catch (err: any) {
+      console.error("Error:", err)
+      toast.error(err.message || "Failed to add hearing")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const goBack = () => router.push(`/fir/${firId}`)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="page-wrapper">
-      <Header user={user} title="Add Hearing" />
-
-      <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-b-2 gov-shadow-lg">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 bg-white/20 rounded-xl flex items-center justify-center border-2 border-white/40">
-                <Gavel className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">ADD HEARING</h1>
-                <p className="text-purple-100">FIR: {firNumber}</p>
-              </div>
-            </div>
-            <Button 
-              onClick={() => router.push(`/fir/${firId}`)} 
-              variant="outline" 
-              className="bg-white/20 border-2 border-white/30 text-white hover:bg-white/30"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
+    <div className="min-h-screen bg-background p-4 lg:p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={goBack}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Gavel className="h-6 w-6 text-purple-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Add Hearing</h1>
+            <p className="text-muted-foreground text-sm">FIR: {firNumber}</p>
           </div>
         </div>
-      </div>
 
-      <div className="page-container page-section">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-          <div className="bg-white border-2 border-purple-100 rounded-xl overflow-hidden gov-shadow-lg">
-            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-4">
-              <h2 className="text-lg font-bold">HEARING DETAILS</h2>
-            </div>
-            <div className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          
+          {/* Hearing Date & Time */}
+          <Card className="border-2">
+            <CardHeader className="bg-muted/30 border-b pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                Hearing Schedule
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Hearing Date */}
                 <div>
-                  <label className="block text-sm font-bold mb-2 flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-purple-600" />
-                    Hearing Date <span className="text-red-600">*</span>
-                  </label>
-                  <input
+                  <Label>Hearing Date <span className="text-red-500">*</span></Label>
+                  <Input
                     type="date"
-                    required
+                    className="mt-1"
                     value={formData.hearing_date}
-                    onChange={(e) => setFormData({...formData, hearing_date: e.target.value})}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
+                    onChange={(e) => handleChange("hearing_date", e.target.value)}
+                    required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-purple-600" />
-                    Hearing Time
-                  </label>
-                  <input
-                    type="time"
-                    value={formData.hearing_time}
-                    onChange={(e) => setFormData({...formData, hearing_time: e.target.value})}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold mb-2">Court Name</label>
-                  <select
-                    value={formData.court_name}
-                    onChange={(e) => setFormData({...formData, court_name: e.target.value})}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                  >
-                    <option value="">-- Select Court --</option>
-                    {COURTS.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">Purpose</label>
-                  <select
-                    value={formData.purpose}
-                    onChange={(e) => setFormData({...formData, purpose: e.target.value})}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                  >
-                    {HEARING_PURPOSE.map(p => (
-                      <option key={p} value={p}>{getPurposeLabel(p)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-bold mb-2">Status</label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({...formData, status: e.target.value})}
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none"
-                  >
-                    {HEARING_STATUS.map(s => (
-                      <option key={s} value={s}>{getStatusLabel(s)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold mb-2">Remarks</label>
-                  <textarea
-                    rows={4}
-                    value={formData.remarks}
-                    onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                    placeholder="Enter any remarks..."
-                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none resize-none"
-                  />
-                </div>
-              </div>
 
-              <div className="flex justify-end pt-4 border-t-2 border-gray-200">
-                <Button 
-                  type="submit" 
-                  disabled={loading} 
-                  className="px-8 py-3 bg-purple-600 text-white font-bold hover:bg-purple-700"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> 
-                      ADDING...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="h-4 w-4 mr-2" /> 
-                      ADD HEARING
-                    </>
-                  )}
-                </Button>
+                {/* Hearing Time */}
+                <div>
+                  <Label>Hearing Time</Label>
+                  <div className="relative mt-1">
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="time"
+                      className="pl-9"
+                      value={formData.hearing_time}
+                      onChange={(e) => handleChange("hearing_time", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Hearing Type */}
+                <div>
+                  <Label>Hearing Type</Label>
+                  <select
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    value={formData.hearing_type}
+                    onChange={(e) => handleChange("hearing_type", e.target.value)}
+                  >
+                    <option value="regular">Regular Hearing</option>
+                    <option value="bail">Bail Hearing</option>
+                    <option value="chargesheet">Charge Sheet</option>
+                    <option value="evidence">Evidence</option>
+                    <option value="argument">Argument</option>
+                    <option value="judgment">Judgment</option>
+                    <option value="remand">Remand</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Hearing Status */}
+                <div>
+                  <Label>Hearing Status</Label>
+                  <select
+                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    value={formData.hearing_status}
+                    onChange={(e) => handleChange("hearing_status", e.target.value)}
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="adjourned">Adjourned</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                {/* Next Hearing Date */}
+                <div className="md:col-span-2">
+                  <Label>Next Hearing Date</Label>
+                  <Input
+                    type="date"
+                    className="mt-1"
+                    value={formData.next_hearing_date}
+                    onChange={(e) => handleChange("next_hearing_date", e.target.value)}
+                    min={formData.hearing_date}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This will also update the FIR's next hearing date
+                  </p>
+                </div>
+
               </div>
-            </div>
+            </CardContent>
+          </Card>
+
+          {/* Court Details */}
+          <Card className="border-2">
+            <CardHeader className="bg-muted/30 border-b pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Scale className="h-5 w-5 text-primary" />
+                Court Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Court Name */}
+                <div>
+                  <Label>Court Name</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="e.g., Railway Court, Patna"
+                    value={formData.court_name}
+                    onChange={(e) => handleChange("court_name", e.target.value)}
+                  />
+                </div>
+
+                {/* Judge Name */}
+                <div>
+                  <Label>Judge Name</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Presiding Judge Name"
+                    value={formData.judge_name}
+                    onChange={(e) => handleChange("judge_name", e.target.value)}
+                  />
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Appearance Details */}
+          <Card className="border-2">
+            <CardHeader className="bg-muted/30 border-b pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                Appearance Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                {/* Attended By */}
+                <div>
+                  <Label>Attended By (IO)</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Officer who attended"
+                    value={formData.attended_by}
+                    onChange={(e) => handleChange("attended_by", e.target.value)}
+                  />
+                </div>
+
+                {/* Prosecutor */}
+                <div>
+                  <Label>Prosecutor Name</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Public Prosecutor"
+                    value={formData.prosecutor_name}
+                    onChange={(e) => handleChange("prosecutor_name", e.target.value)}
+                  />
+                </div>
+
+                {/* Defense Lawyer */}
+                <div>
+                  <Label>Defense Lawyer</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Defense Advocate"
+                    value={formData.defense_lawyer}
+                    onChange={(e) => handleChange("defense_lawyer", e.target.value)}
+                  />
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Order & Remarks */}
+          <Card className="border-2">
+            <CardHeader className="bg-muted/30 border-b pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Order & Remarks
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                
+                {/* Order Passed */}
+                <div>
+                  <Label>Order Passed</Label>
+                  <Textarea
+                    className="mt-1"
+                    placeholder="Enter the order passed by the court..."
+                    value={formData.order_passed}
+                    onChange={(e) => handleChange("order_passed", e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                {/* Remarks */}
+                <div>
+                  <Label>Remarks / Notes</Label>
+                  <Textarea
+                    className="mt-1"
+                    placeholder="Enter any additional remarks or observations..."
+                    value={formData.remarks}
+                    onChange={(e) => handleChange("remarks", e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-6 border-t-2">
+            <Button type="button" variant="outline" onClick={goBack} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving} className="min-w-[140px]">
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Add Hearing
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>

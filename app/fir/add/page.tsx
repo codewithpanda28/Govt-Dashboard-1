@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  ChevronLeft, FileText, Train, User, Users, Scale,
-  Briefcase, Plus, Trash2, Loader2, Save, AlertCircle, RefreshCw
+  ChevronLeft, FileText, Train, User, Users,
+  Plus, Trash2, Loader2, Save, AlertCircle, RefreshCw, Upload, MapPin
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -27,7 +27,6 @@ export default function AddFIRPage() {
   const [districts, setDistricts] = useState<any[]>([])
   const [thanas, setThanas] = useState<any[]>([])
   const [courts, setCourts] = useState<any[]>([])
-  const [ios, setIOs] = useState<any[]>([])
 
   // Filtered data
   const [filteredZones, setFilteredZones] = useState<any[]>([])
@@ -36,42 +35,57 @@ export default function AddFIRPage() {
 
   // Form data
   const [formData, setFormData] = useState({
-    fir_number: "",
     accused_type: "unknown",
-    case_status: "open",
     state_id: "",
     zone_id: "",
     district_id: "",
     thana_id: "",
     court_id: "",
     law_sections: "",
-    incident_date: "",
+    fir_number: "",
+    fir_date: "",
     incident_time: "",
     train_number: "",
     train_name: "",
     station_code: "",
     station_name: "",
     brief_description: "",
-    property_stolen: "",
-    estimated_value: "",
-    io_name: "",
-    io_belt_no: "",
-    io_rank: "",
-    io_mobile: "",
-    lawyer_name: "",
-    bar_council_no: "",
-    lawyer_mobile: "",
-    lawyer_email: ""
+    fir_copy_url: ""
   })
 
   const [accusedList, setAccusedList] = useState([{
-    name: "", father_name: "", age: "", gender: "male",
-    mobile: "", aadhaar: "", full_address: ""
+    name: "",
+    aadhaar: "",
+    gender: "male",
+    dob: "",
+    age: "",
+    pan: "",
+    father_name: "",
+    state_id: "",
+    district_id: "",
+    full_address: "",
+    pin_code: "",
+    mobile: "",
+    email: ""
   }])
 
   const [bailerList, setBailerList] = useState([{
-    name: "", father_name: "", mobile: "", aadhaar: "", full_address: ""
+    name: "",
+    aadhaar: "",
+    gender: "male",
+    dob: "",
+    age: "",
+    pan: "",
+    father_name: "",
+    state_id: "",
+    district_id: "",
+    full_address: "",
+    pin_code: "",
+    mobile: "",
+    email: ""
   }])
+
+  const [uploadingFile, setUploadingFile] = useState(false)
 
   useEffect(() => {
     initPage()
@@ -98,39 +112,25 @@ export default function AddFIRPage() {
   }
 
   const loadAllData = async () => {
-    console.log("========== LOADING DATA ==========")
-
     // States
     const { data: statesData } = await supabase.from("states").select("*").order("id")
     setStates(statesData || [])
-    console.log("States:", statesData?.length)
 
     // Zones
     const { data: zonesData } = await supabase.from("zones").select("*").order("id")
     setZones(zonesData || [])
-    console.log("Zones:", zonesData?.length)
 
     // Districts
     const { data: districtsData } = await supabase.from("districts").select("*").order("id")
     setDistricts(districtsData || [])
-    console.log("Districts:", districtsData?.length)
 
     // Thanas
     const { data: thanasData } = await supabase.from("thanas").select("*").order("id")
     setThanas(thanasData || [])
-    console.log("Thanas:", thanasData?.length)
 
     // Courts
     const { data: courtsData } = await supabase.from("courts").select("*").order("id")
     setCourts(courtsData || [])
-    console.log("Courts:", courtsData?.length)
-
-    // IOs
-    const { data: iosData } = await supabase.from("investigating_officers").select("*").order("id")
-    setIOs(iosData || [])
-    console.log("IOs:", iosData?.length)
-
-    console.log("========== LOADING COMPLETE ==========")
   }
 
   // Get display name
@@ -195,35 +195,22 @@ export default function AddFIRPage() {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  // IO change - auto-fill
-  const handleIOChange = (ioId: string) => {
-    if (ioId) {
-      const io = ios.find(i => i.id === parseInt(ioId))
-      if (io) {
-        setFormData(prev => ({
-          ...prev,
-          io_name: io.name || "",
-          io_belt_no: io.belt_number || io.belt_no || "",
-          io_rank: io.rank || "",
-          io_mobile: io.mobile || io.phone || ""
-        }))
-      }
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        io_name: "",
-        io_belt_no: "",
-        io_rank: "",
-        io_mobile: ""
-      }))
-    }
-  }
-
   // Accused handlers
   const addAccused = () => {
     setAccusedList(prev => [...prev, {
-      name: "", father_name: "", age: "", gender: "male",
-      mobile: "", aadhaar: "", full_address: ""
+      name: "",
+      aadhaar: "",
+      gender: "male",
+      dob: "",
+      age: "",
+      pan: "",
+      father_name: "",
+      state_id: "",
+      district_id: "",
+      full_address: "",
+      pin_code: "",
+      mobile: "",
+      email: ""
     }])
   }
 
@@ -231,6 +218,19 @@ export default function AddFIRPage() {
     setAccusedList(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+      
+      // Auto-calculate age from DOB
+      if (field === 'dob' && value) {
+        const birthDate = new Date(value)
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--
+        }
+        updated[index].age = age.toString()
+      }
+      
       return updated
     })
   }
@@ -244,7 +244,19 @@ export default function AddFIRPage() {
   // Bailer handlers
   const addBailer = () => {
     setBailerList(prev => [...prev, {
-      name: "", father_name: "", mobile: "", aadhaar: "", full_address: ""
+      name: "",
+      aadhaar: "",
+      gender: "male",
+      dob: "",
+      age: "",
+      pan: "",
+      father_name: "",
+      state_id: "",
+      district_id: "",
+      full_address: "",
+      pin_code: "",
+      mobile: "",
+      email: ""
     }])
   }
 
@@ -252,6 +264,19 @@ export default function AddFIRPage() {
     setBailerList(prev => {
       const updated = [...prev]
       updated[index] = { ...updated[index], [field]: value }
+      
+      // Auto-calculate age from DOB
+      if (field === 'dob' && value) {
+        const birthDate = new Date(value)
+        const today = new Date()
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--
+        }
+        updated[index].age = age.toString()
+      }
+      
       return updated
     })
   }
@@ -262,11 +287,46 @@ export default function AddFIRPage() {
     }
   }
 
-  // ✅ SUBMIT - Using EXACT column names from your database
+  // File upload handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setUploadingFile(true)
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+      const filePath = `fir-copies/${fileName}`
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file)
+
+      if (uploadError) {
+        toast.error('Failed to upload file: ' + uploadError.message)
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath)
+
+      setFormData(prev => ({ ...prev, fir_copy_url: publicUrl }))
+      toast.success('File uploaded successfully!')
+
+    } catch (err: any) {
+      console.error('Upload error:', err)
+      toast.error('Failed to upload file')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  // Submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    console.log("========== SUBMIT STARTED ==========")
     setSubmitError(null)
 
     if (saving) return
@@ -279,7 +339,6 @@ export default function AddFIRPage() {
     try {
       setSaving(true)
 
-      // Get user
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
@@ -293,24 +352,22 @@ export default function AddFIRPage() {
       const selectedThana = thanas.find(t => t.id === parseInt(formData.thana_id))
       const selectedCourt = courts.find(c => c.id === parseInt(formData.court_id))
 
-      // ✅ Build FIR data with EXACT column names from your table
+      // Build FIR data
       const firData: Record<string, any> = {
         fir_number: formData.fir_number.trim(),
-        user_id: user.id
+        user_id: user.id,
+        accused_type: formData.accused_type,
+        case_status: 'open'
       }
 
-      // Basic fields
-      if (formData.accused_type) firData.accused_type = formData.accused_type
-      if (formData.case_status) firData.case_status = formData.case_status
-
-      // ✅ IDs (bigint columns)
+      // IDs
       if (formData.state_id) firData.state_id = parseInt(formData.state_id)
       if (formData.zone_id) firData.zone_id = parseInt(formData.zone_id)
       if (formData.district_id) firData.railway_district_id = parseInt(formData.district_id)
       if (formData.thana_id) firData.thana_id = parseInt(formData.thana_id)
       if (formData.court_id) firData.court_id = parseInt(formData.court_id)
 
-      // ✅ Names (text columns)
+      // Names
       if (selectedState) {
         firData.state = getName(selectedState)
         firData.state_name = getName(selectedState)
@@ -331,39 +388,16 @@ export default function AddFIRPage() {
         firData.court_name = getName(selectedCourt)
       }
 
-      // ✅ Law sections (correct column name: law_sections_text)
+      // Other fields
       if (formData.law_sections) firData.law_sections_text = formData.law_sections
-
-      // ✅ Date/Time
-      if (formData.incident_date) firData.incident_date = formData.incident_date
+      if (formData.fir_date) firData.incident_date = formData.fir_date
       if (formData.incident_time) firData.incident_time = formData.incident_time
-
-      // ✅ Train details (correct column names: train_number_manual, train_name_manual, station_name_manual)
       if (formData.train_number) firData.train_number_manual = formData.train_number
       if (formData.train_name) firData.train_name_manual = formData.train_name
       if (formData.station_code) firData.station_code = formData.station_code
       if (formData.station_name) firData.station_name_manual = formData.station_name
-
-      // ✅ Description
       if (formData.brief_description) firData.brief_description = formData.brief_description
-      if (formData.property_stolen) firData.property_stolen = formData.property_stolen
-      
-      // ✅ Value (correct column name: estimated_value)
-      if (formData.estimated_value) firData.estimated_value = parseFloat(formData.estimated_value)
-
-      // ✅ IO details (correct column name: io_belt_no)
-      if (formData.io_name) firData.io_name = formData.io_name
-      if (formData.io_belt_no) firData.io_belt_no = formData.io_belt_no
-      if (formData.io_rank) firData.io_rank = formData.io_rank
-      if (formData.io_mobile) firData.io_mobile = formData.io_mobile
-
-      // ✅ Lawyer details (correct column name: bar_council_no)
-      if (formData.lawyer_name) firData.lawyer_name = formData.lawyer_name
-      if (formData.bar_council_no) firData.bar_council_no = formData.bar_council_no
-      if (formData.lawyer_mobile) firData.lawyer_mobile = formData.lawyer_mobile
-      if (formData.lawyer_email) firData.lawyer_email = formData.lawyer_email
-
-      console.log("FIR Data to insert:", firData)
+      if (formData.fir_copy_url) firData.fir_copy_url = formData.fir_copy_url
 
       // Insert FIR
       const { data: fir, error: firError } = await supabase
@@ -379,45 +413,66 @@ export default function AddFIRPage() {
         return
       }
 
-      console.log("✅ FIR created:", fir.id)
-
       // Insert Accused
       const validAccused = accusedList.filter(a => a.name.trim())
       if (validAccused.length > 0) {
-        const { error } = await supabase.from("accused_details").insert(
-          validAccused.map(a => ({
+        const accusedData = validAccused.map(a => {
+          const selectedAccusedState = states.find(s => s.id === parseInt(a.state_id))
+          const selectedAccusedDistrict = districts.find(d => d.id === parseInt(a.district_id))
+          
+          return {
             fir_id: fir.id,
             name: a.name.trim(),
             father_name: a.father_name || null,
             age: a.age ? parseInt(a.age) : null,
+            dob: a.dob || null,
             gender: a.gender || "male",
-            mobile: a.mobile || null,
             aadhaar: a.aadhaar || null,
-            full_address: a.full_address || null
-          }))
-        )
-        if (error) console.error("Accused error:", error)
-        else console.log("✅ Accused inserted")
+            pan: a.pan || null,
+            mobile: a.mobile || null,
+            email: a.email || null,
+            state_id: a.state_id ? parseInt(a.state_id) : null,
+            state_name: selectedAccusedState ? getName(selectedAccusedState) : null,
+            district_id: a.district_id ? parseInt(a.district_id) : null,
+            district_name: selectedAccusedDistrict ? getName(selectedAccusedDistrict) : null,
+            full_address: a.full_address || null,
+            pin_code: a.pin_code || null
+          }
+        })
+
+        await supabase.from("accused_details").insert(accusedData)
       }
 
       // Insert Bailers
       const validBailers = bailerList.filter(b => b.name.trim())
       if (validBailers.length > 0) {
-        const { error } = await supabase.from("bailer_details").insert(
-          validBailers.map(b => ({
+        const bailerData = validBailers.map(b => {
+          const selectedBailerState = states.find(s => s.id === parseInt(b.state_id))
+          const selectedBailerDistrict = districts.find(d => d.id === parseInt(b.district_id))
+          
+          return {
             fir_id: fir.id,
             name: b.name.trim(),
             father_name: b.father_name || null,
-            mobile: b.mobile || null,
+            age: b.age ? parseInt(b.age) : null,
+            dob: b.dob || null,
+            gender: b.gender || "male",
             aadhaar: b.aadhaar || null,
-            full_address: b.full_address || null
-          }))
-        )
-        if (error) console.error("Bailers error:", error)
-        else console.log("✅ Bailers inserted")
+            pan: b.pan || null,
+            mobile: b.mobile || null,
+            email: b.email || null,
+            state_id: b.state_id ? parseInt(b.state_id) : null,
+            state_name: selectedBailerState ? getName(selectedBailerState) : null,
+            district_id: b.district_id ? parseInt(b.district_id) : null,
+            district_name: selectedBailerDistrict ? getName(selectedBailerDistrict) : null,
+            full_address: b.full_address || null,
+            pin_code: b.pin_code || null
+          }
+        })
+
+        await supabase.from("bailer_details").insert(bailerData)
       }
 
-      console.log("========== SUCCESS ==========")
       toast.success("FIR registered successfully!")
       router.push(`/fir/${fir.id}`)
 
@@ -432,42 +487,44 @@ export default function AddFIRPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-          <p className="mt-4 text-muted-foreground">Loading...</p>
+          <Loader2 className="h-10 w-10 animate-spin mx-auto text-gray-600" />
+          <p className="mt-3 text-gray-600">Loading...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background p-4 lg:p-6">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => router.push('/fir/list')}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <FileText className="h-6 w-6 text-primary" />
+        <div className="bg-white border border-gray-300 rounded p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => router.push('/fir/list')}
+                className="border-gray-300"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold text-gray-800">FIR Entry Form</h1>
+                <p className="text-sm text-gray-600">Register New Case</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">Register New FIR</h1>
-              <p className="text-muted-foreground text-sm">Fill in the details</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <div className="flex flex-wrap gap-1 text-xs">
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">States: {states.length}</span>
-              <span className="bg-green-100 text-green-800 px-2 py-1 rounded">Districts: {districts.length}</span>
-              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded">Thanas: {thanas.length}</span>
-              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">IOs: {ios.length}</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={loadAllData}>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={loadAllData}
+              className="border-gray-300"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
@@ -475,44 +532,31 @@ export default function AddFIRPage() {
 
         {/* Error */}
         {submitError && (
-          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-300 rounded p-4">
             <div className="flex gap-3">
               <AlertCircle className="h-5 w-5 text-red-600" />
               <div>
-                <p className="font-medium text-red-800">Failed to save FIR</p>
+                <p className="font-semibold text-red-800">Failed to save FIR</p>
                 <p className="text-sm text-red-700">{submitError}</p>
               </div>
             </div>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           
           {/* Case Details */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Case Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3">
+              <h2 className="font-bold text-gray-800">CASE DETAILS</h2>
+            </div>
+            <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
                 <div>
-                  <Label>FIR Number <span className="text-red-500">*</span></Label>
-                  <Input
-                    className="mt-1"
-                    placeholder="e.g., 001/2024/RPF"
-                    value={formData.fir_number}
-                    onChange={(e) => handleChange("fir_number", e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Label>Accused Type</Label>
+                  <Label className="text-gray-700 font-semibold">Accused Type <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.accused_type}
                     onChange={(e) => handleChange("accused_type", e.target.value)}
                   >
@@ -522,24 +566,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label>Case Status</Label>
+                  <Label className="text-gray-700 font-semibold">State</Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    value={formData.case_status}
-                    onChange={(e) => handleChange("case_status", e.target.value)}
-                  >
-                    <option value="open">Open</option>
-                    <option value="under_investigation">Under Investigation</option>
-                    <option value="chargesheet">Chargesheet Filed</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </div>
-
-                {/* STATE */}
-                <div>
-                  <Label>State</Label>
-                  <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.state_id}
                     onChange={(e) => handleStateChange(e.target.value)}
                   >
@@ -550,11 +579,10 @@ export default function AddFIRPage() {
                   </select>
                 </div>
 
-                {/* ZONE */}
                 <div>
-                  <Label>Zone</Label>
+                  <Label className="text-gray-700 font-semibold">Zone</Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.zone_id}
                     onChange={(e) => handleZoneChange(e.target.value)}
                   >
@@ -565,11 +593,10 @@ export default function AddFIRPage() {
                   </select>
                 </div>
 
-                {/* DISTRICT */}
                 <div>
-                  <Label>District</Label>
+                  <Label className="text-gray-700 font-semibold">District</Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.district_id}
                     onChange={(e) => handleDistrictChange(e.target.value)}
                   >
@@ -580,11 +607,10 @@ export default function AddFIRPage() {
                   </select>
                 </div>
 
-                {/* THANA */}
                 <div>
-                  <Label>Thana</Label>
+                  <Label className="text-gray-700 font-semibold">Thana</Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.thana_id}
                     onChange={(e) => handleThanaChange(e.target.value)}
                   >
@@ -595,11 +621,10 @@ export default function AddFIRPage() {
                   </select>
                 </div>
 
-                {/* COURT */}
                 <div>
-                  <Label>Court</Label>
+                  <Label className="text-gray-700 font-semibold">Court</Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.court_id}
                     onChange={(e) => handleChange("court_id", e.target.value)}
                   >
@@ -611,9 +636,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label>Law Sections</Label>
+                  <Label className="text-gray-700 font-semibold">Section</Label>
                   <Input
-                    className="mt-1"
+                    className="mt-1 border-gray-300 focus:border-gray-500"
                     placeholder="e.g., IPC 379, 411"
                     value={formData.law_sections}
                     onChange={(e) => handleChange("law_sections", e.target.value)}
@@ -621,337 +646,532 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label>Incident Date</Label>
+                  <Label className="text-gray-700 font-semibold">FIR No. <span className="text-red-600">*</span></Label>
                   <Input
-                    type="date"
-                    className="mt-1"
-                    value={formData.incident_date}
-                    onChange={(e) => handleChange("incident_date", e.target.value)}
+                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    placeholder="e.g., 001/2024/RPF"
+                    value={formData.fir_number}
+                    onChange={(e) => handleChange("fir_number", e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <Label>Incident Time</Label>
+                  <Label className="text-gray-700 font-semibold">Date of FIR</Label>
+                  <Input
+                    type="date"
+                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    value={formData.fir_date}
+                    onChange={(e) => handleChange("fir_date", e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-gray-700 font-semibold">Timing of Incident</Label>
                   <Input
                     type="time"
-                    className="mt-1"
+                    className="mt-1 border-gray-300 focus:border-gray-500"
                     value={formData.incident_time}
                     onChange={(e) => handleChange("incident_time", e.target.value)}
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Train & Station */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Train className="h-5 w-5 text-primary" />
-                Train & Station Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
+          {/* Train Details */}
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3">
+              <h2 className="font-bold text-gray-800">WHICH TRAIN INCIDENT HAPPENED</h2>
+            </div>
+            <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Train Number</Label>
+                  <Label className="text-gray-700 font-semibold">Train No.</Label>
                   <Input 
-                    className="mt-1" 
+                    className="mt-1 border-gray-300 focus:border-gray-500" 
                     placeholder="e.g., 12345" 
                     value={formData.train_number} 
                     onChange={(e) => handleChange("train_number", e.target.value)} 
                   />
                 </div>
                 <div>
-                  <Label>Train Name</Label>
+                  <Label className="text-gray-700 font-semibold">Train Name</Label>
                   <Input 
-                    className="mt-1" 
+                    className="mt-1 border-gray-300 focus:border-gray-500" 
                     placeholder="e.g., Rajdhani Express" 
                     value={formData.train_name} 
                     onChange={(e) => handleChange("train_name", e.target.value)} 
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Station Details */}
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3">
+              <h2 className="font-bold text-gray-800">WHICH STATION INCIDENT HAPPENED</h2>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Station Code</Label>
+                  <Label className="text-gray-700 font-semibold">Station Code</Label>
                   <Input 
-                    className="mt-1" 
+                    className="mt-1 border-gray-300 focus:border-gray-500" 
                     placeholder="e.g., PNBE" 
                     value={formData.station_code} 
                     onChange={(e) => handleChange("station_code", e.target.value)} 
                   />
                 </div>
                 <div>
-                  <Label>Station Name</Label>
+                  <Label className="text-gray-700 font-semibold">Station Name</Label>
                   <Input 
-                    className="mt-1" 
+                    className="mt-1 border-gray-300 focus:border-gray-500" 
                     placeholder="e.g., Patna Junction" 
                     value={formData.station_name} 
                     onChange={(e) => handleChange("station_name", e.target.value)} 
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Accused */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
-                  Accused Details
-                </CardTitle>
-                <Button type="button" size="sm" variant="outline" onClick={addAccused}>
-                  <Plus className="h-4 w-4 mr-1" /> Add
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
+          {/* Accused Details */}
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3 flex items-center justify-between">
+              <h2 className="font-bold text-gray-800">ACCUSED DETAIL</h2>
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="outline" 
+                onClick={addAccused}
+                className="border-gray-400"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add More
+              </Button>
+            </div>
+            <div className="p-4 space-y-4">
               {accusedList.map((accused, idx) => (
-                <div key={idx} className="border rounded-lg p-4">
+                <div key={idx} className="border border-gray-300 rounded p-4">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-medium">Accused #{idx + 1}</span>
+                    <span className="font-semibold text-gray-700">Accused #{idx + 1}</span>
                     {accusedList.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" className="text-red-500" onClick={() => removeAccused(idx)}>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => removeAccused(idx)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Input placeholder="Name" value={accused.name} onChange={(e) => updateAccused(idx, "name", e.target.value)} />
-                    <Input placeholder="Father's Name" value={accused.father_name} onChange={(e) => updateAccused(idx, "father_name", e.target.value)} />
-                    <div className="flex gap-2">
-                      <Input placeholder="Age" className="w-20" value={accused.age} onChange={(e) => updateAccused(idx, "age", e.target.value)} />
-                      <select className="flex-1 px-2 border rounded bg-background" value={accused.gender} onChange={(e) => updateAccused(idx, "gender", e.target.value)}>
+                    <div>
+                      <Label className="text-gray-700">Name</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Full Name" 
+                        value={accused.name} 
+                        onChange={(e) => updateAccused(idx, "name", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Aadhaar No.</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="XXXX-XXXX-XXXX" 
+                        maxLength={12}
+                        value={accused.aadhaar} 
+                        onChange={(e) => updateAccused(idx, "aadhaar", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Gender</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={accused.gender} 
+                        onChange={(e) => updateAccused(idx, "gender", e.target.value)}
+                      >
                         <option value="male">Male</option>
                         <option value="female">Female</option>
+                        <option value="other">Other</option>
                       </select>
                     </div>
-                    <Input placeholder="Mobile" value={accused.mobile} onChange={(e) => updateAccused(idx, "mobile", e.target.value)} />
-                    <Input placeholder="Aadhaar" value={accused.aadhaar} onChange={(e) => updateAccused(idx, "aadhaar", e.target.value)} />
-                    <Input placeholder="Address" value={accused.full_address} onChange={(e) => updateAccused(idx, "full_address", e.target.value)} />
+                    
+                    <div>
+                      <Label className="text-gray-700">DOB / Age</Label>
+                      <Input 
+                        type="date"
+                        className="mt-1 border-gray-300"
+                        value={accused.dob} 
+                        onChange={(e) => updateAccused(idx, "dob", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Age (Auto)</Label>
+                      <Input 
+                        type="number"
+                        className="mt-1 border-gray-300 bg-gray-50"
+                        placeholder="Age" 
+                        value={accused.age} 
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">PAN No.</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="XXXXX0000X" 
+                        maxLength={10}
+                        value={accused.pan} 
+                        onChange={(e) => updateAccused(idx, "pan", e.target.value.toUpperCase())} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Father's Name</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Father's Name" 
+                        value={accused.father_name} 
+                        onChange={(e) => updateAccused(idx, "father_name", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">State</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={accused.state_id} 
+                        onChange={(e) => updateAccused(idx, "state_id", e.target.value)}
+                      >
+                        <option value="">-- Select State --</option>
+                        {states.map(state => (
+                          <option key={state.id} value={state.id}>{getName(state)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">District</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={accused.district_id} 
+                        onChange={(e) => updateAccused(idx, "district_id", e.target.value)}
+                      >
+                        <option value="">-- Select District --</option>
+                        {districts.map(d => (
+                          <option key={d.id} value={d.id}>{getName(d)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <Label className="text-gray-700">Full Address</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Complete Address" 
+                        value={accused.full_address} 
+                        onChange={(e) => updateAccused(idx, "full_address", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">PIN Code</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="6 digit PIN" 
+                        maxLength={6}
+                        value={accused.pin_code} 
+                        onChange={(e) => updateAccused(idx, "pin_code", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Mobile</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="10 digit mobile" 
+                        maxLength={10}
+                        value={accused.mobile} 
+                        onChange={(e) => updateAccused(idx, "mobile", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Email ID</Label>
+                      <Input 
+                        type="email"
+                        className="mt-1 border-gray-300"
+                        placeholder="email@example.com" 
+                        value={accused.email} 
+                        onChange={(e) => updateAccused(idx, "email", e.target.value)} 
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Bailer */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5 text-primary" />
-                  Bailer Details
-                </CardTitle>
-                <Button type="button" size="sm" variant="outline" onClick={addBailer}>
-                  <Plus className="h-4 w-4 mr-1" /> Add
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
+          {/* Bailer Details */}
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3 flex items-center justify-between">
+              <h2 className="font-bold text-gray-800">BAILER DETAIL</h2>
+              <Button 
+                type="button" 
+                size="sm" 
+                variant="outline" 
+                onClick={addBailer}
+                className="border-gray-400"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add More
+              </Button>
+            </div>
+            <div className="p-4 space-y-4">
               {bailerList.map((bailer, idx) => (
-                <div key={idx} className="border rounded-lg p-4">
+                <div key={idx} className="border border-gray-300 rounded p-4">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-medium">Bailer #{idx + 1}</span>
+                    <span className="font-semibold text-gray-700">Bailer #{idx + 1}</span>
                     {bailerList.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" className="text-red-500" onClick={() => removeBailer(idx)}>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => removeBailer(idx)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     )}
                   </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Input placeholder="Name" value={bailer.name} onChange={(e) => updateBailer(idx, "name", e.target.value)} />
-                    <Input placeholder="Father's Name" value={bailer.father_name} onChange={(e) => updateBailer(idx, "father_name", e.target.value)} />
-                    <Input placeholder="Mobile" value={bailer.mobile} onChange={(e) => updateBailer(idx, "mobile", e.target.value)} />
-                    <Input placeholder="Aadhaar" value={bailer.aadhaar} onChange={(e) => updateBailer(idx, "aadhaar", e.target.value)} />
-                    <Input placeholder="Address" className="md:col-span-2" value={bailer.full_address} onChange={(e) => updateBailer(idx, "full_address", e.target.value)} />
+                    <div>
+                      <Label className="text-gray-700">Name</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Full Name" 
+                        value={bailer.name} 
+                        onChange={(e) => updateBailer(idx, "name", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Aadhaar No.</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="XXXX-XXXX-XXXX" 
+                        maxLength={12}
+                        value={bailer.aadhaar} 
+                        onChange={(e) => updateBailer(idx, "aadhaar", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Gender</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={bailer.gender} 
+                        onChange={(e) => updateBailer(idx, "gender", e.target.value)}
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">DOB / Age</Label>
+                      <Input 
+                        type="date"
+                        className="mt-1 border-gray-300"
+                        value={bailer.dob} 
+                        onChange={(e) => updateBailer(idx, "dob", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Age (Auto)</Label>
+                      <Input 
+                        type="number"
+                        className="mt-1 border-gray-300 bg-gray-50"
+                        placeholder="Age" 
+                        value={bailer.age} 
+                        readOnly
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">PAN No.</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="XXXXX0000X" 
+                        maxLength={10}
+                        value={bailer.pan} 
+                        onChange={(e) => updateBailer(idx, "pan", e.target.value.toUpperCase())} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Father's Name</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Father's Name" 
+                        value={bailer.father_name} 
+                        onChange={(e) => updateBailer(idx, "father_name", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">State</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={bailer.state_id} 
+                        onChange={(e) => updateBailer(idx, "state_id", e.target.value)}
+                      >
+                        <option value="">-- Select State --</option>
+                        {states.map(state => (
+                          <option key={state.id} value={state.id}>{getName(state)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">District</Label>
+                      <select 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        value={bailer.district_id} 
+                        onChange={(e) => updateBailer(idx, "district_id", e.target.value)}
+                      >
+                        <option value="">-- Select District --</option>
+                        {districts.map(d => (
+                          <option key={d.id} value={d.id}>{getName(d)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <Label className="text-gray-700">Full Address</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="Complete Address" 
+                        value={bailer.full_address} 
+                        onChange={(e) => updateBailer(idx, "full_address", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">PIN Code</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="6 digit PIN" 
+                        maxLength={6}
+                        value={bailer.pin_code} 
+                        onChange={(e) => updateBailer(idx, "pin_code", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Mobile</Label>
+                      <Input 
+                        className="mt-1 border-gray-300"
+                        placeholder="10 digit mobile" 
+                        maxLength={10}
+                        value={bailer.mobile} 
+                        onChange={(e) => updateBailer(idx, "mobile", e.target.value)} 
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-gray-700">Email ID</Label>
+                      <Input 
+                        type="email"
+                        className="mt-1 border-gray-300"
+                        placeholder="email@example.com" 
+                        value={bailer.email} 
+                        onChange={(e) => updateBailer(idx, "email", e.target.value)} 
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* Description */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-lg">Case Description</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <Textarea 
-                placeholder="Enter case description..." 
-                value={formData.brief_description} 
-                onChange={(e) => handleChange("brief_description", e.target.value)} 
-                rows={3} 
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Property Stolen</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Description" 
-                    value={formData.property_stolen} 
-                    onChange={(e) => handleChange("property_stolen", e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <Label>Estimated Value (₹)</Label>
-                  <Input 
-                    type="number" 
-                    className="mt-1" 
-                    placeholder="Amount" 
-                    value={formData.estimated_value} 
-                    onChange={(e) => handleChange("estimated_value", e.target.value)} 
-                  />
-                </div>
+          {/* Brief & Attachment */}
+          <div className="bg-white border border-gray-300 rounded">
+            <div className="border-b border-gray-300 bg-gray-100 px-4 py-3">
+              <h2 className="font-bold text-gray-800">BRIEF & ATTACHMENT</h2>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <Label className="text-gray-700 font-semibold">Brief (Description)</Label>
+                <Textarea 
+                  className="mt-1 border-gray-300"
+                  placeholder="Enter detailed description of the incident..." 
+                  value={formData.brief_description} 
+                  onChange={(e) => handleChange("brief_description", e.target.value)} 
+                  rows={4} 
+                />
               </div>
-            </CardContent>
-          </Card>
-
-          {/* IO */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Briefcase className="h-5 w-5 text-primary" />
-                Investigating Officer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <Label>Select IO (auto-fill)</Label>
-                  <select 
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background"
-                    onChange={(e) => handleIOChange(e.target.value)}
-                  >
-                    <option value="">-- Select IO --</option>
-                    {ios.map(io => (
-                      <option key={io.id} value={io.id}>
-                        {io.name} {io.rank ? `- ${io.rank}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label>IO Name</Label>
+              
+              <div>
+                <Label className="text-gray-700 font-semibold">Attachment (FIR Copy)</Label>
+                <div className="mt-1 flex items-center gap-3">
                   <Input 
-                    className="mt-1" 
-                    placeholder="Officer Name" 
-                    value={formData.io_name} 
-                    onChange={(e) => handleChange("io_name", e.target.value)} 
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileUpload}
+                    disabled={uploadingFile}
+                    className="flex-1 border-gray-300"
                   />
+                  {uploadingFile && <Loader2 className="h-5 w-5 animate-spin text-gray-600" />}
                 </div>
-                <div>
-                  <Label>Belt Number</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Belt No." 
-                    value={formData.io_belt_no} 
-                    onChange={(e) => handleChange("io_belt_no", e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <Label>Rank</Label>
-                  <select 
-                    className="w-full mt-1 px-3 py-2 border rounded-lg bg-background" 
-                    value={formData.io_rank} 
-                    onChange={(e) => handleChange("io_rank", e.target.value)}
-                  >
-                    <option value="">Select Rank</option>
-                    <option value="Constable">Constable</option>
-                    <option value="Head Constable">Head Constable</option>
-                    <option value="ASI">ASI</option>
-                    <option value="SI">SI</option>
-                    <option value="Inspector">Inspector</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Mobile</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Mobile" 
-                    value={formData.io_mobile} 
-                    onChange={(e) => handleChange("io_mobile", e.target.value)} 
-                  />
-                </div>
+                {formData.fir_copy_url && (
+                  <p className="text-sm text-green-700 mt-2">✓ File uploaded successfully</p>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Lawyer */}
-          <Card className="border-2">
-            <CardHeader className="bg-muted/30 border-b pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Scale className="h-5 w-5 text-primary" />
-                Lawyer Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Lawyer Name</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Advocate Name" 
-                    value={formData.lawyer_name} 
-                    onChange={(e) => handleChange("lawyer_name", e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <Label>Bar Council No.</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Bar Council Number" 
-                    value={formData.bar_council_no} 
-                    onChange={(e) => handleChange("bar_council_no", e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <Label>Mobile</Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Mobile" 
-                    value={formData.lawyer_mobile} 
-                    onChange={(e) => handleChange("lawyer_mobile", e.target.value)} 
-                  />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input 
-                    type="email" 
-                    className="mt-1" 
-                    placeholder="Email" 
-                    value={formData.lawyer_email} 
-                    onChange={(e) => handleChange("lawyer_email", e.target.value)} 
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Submit */}
-          <div className="flex justify-end gap-3 pt-6 border-t-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => router.push('/fir/list')} 
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving} className="min-w-[160px]">
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Submit FIR
-                </>
-              )}
-            </Button>
+          <div className="bg-white border border-gray-300 rounded p-4">
+            <div className="flex justify-end gap-3">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => router.push('/fir/list')} 
+                disabled={saving}
+                className="border-gray-400"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={saving} 
+                className="min-w-[160px] bg-gray-800 hover:bg-gray-900 text-white"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Submit FIR
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </form>
       </div>

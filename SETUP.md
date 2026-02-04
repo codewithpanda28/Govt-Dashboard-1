@@ -1,122 +1,55 @@
-# Setup Guide - Railway Police Data Entry Portal
+# Railway Police FIR System - Deployment Guide
 
-## Quick Start
+## Prerequisites
+- Supabase Account (Government Email)
+- Vercel Account (for hosting)
 
-### 1. Install Dependencies
+## Step 1: Supabase Setup
 
-```bash
-npm install
-```
+1. Go to https://supabase.com
+2. Create new project:
+   - Project Name: Railway Police FIR System
+   - Database Password: [Use strong password]
+   - Region: Mumbai
 
-### 2. Set Up Supabase
+3. Run SQL Script:
+   - Go to SQL Editor
+   - Paste content from `setup-database.sql`
+   - Click "Run"
 
-1. Create a new Supabase project at https://supabase.com
-2. Go to SQL Editor and run the `supabase-setup.sql` script
-3. Create a storage bucket:
-   - Go to Storage > Create Bucket
-   - Name: `documents`
-   - Public: Yes
-   - Allowed MIME types: `image/jpeg`, `image/png`, `application/pdf`
-   - Max file size: 5MB
+4. Enable Authentication:
+   - Go to Authentication → Settings
+   - Enable Email Auth
+   - Disable Email Confirmations (for internal use)
 
-### 3. Configure Environment Variables
+5. Create Storage Bucket:
+   - Go to Storage
+   - Create bucket: "documents"
+   - Set to "Public"
 
-Create `.env.local` file:
+6. Get API Keys:
+   - Go to Settings → API
+   - Copy:
+     * Project URL
+     * Anon (public) key
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
+## Step 2: Deploy Application
 
-Get these values from:
-- Supabase Dashboard > Settings > API
-- `NEXT_PUBLIC_SUPABASE_URL` = Project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` = anon/public key
+### Option A: Vercel (Recommended)
 
-### 4. Create Test User
+1. Go to https://vercel.com
+2. Import Git repository
+3. Add Environment Variables:
+   - NEXT_PUBLIC_SUPABASE_URL
+   - NEXT_PUBLIC_SUPABASE_ANON_KEY
+4. Deploy
 
-1. Go to Supabase Dashboard > Authentication > Users
-2. Click "Add User" > "Create new user"
-3. Email: `officer1@railpolice.in`
-4. Password: `Officer@123`
-5. Auto Confirm User: Yes
-6. Click "Create User"
+### Option B: Self-Hosted Server
 
-7. Go to SQL Editor and run:
-```sql
-INSERT INTO users (auth_id, employee_id, email, mobile, full_name, designation, role, police_station_id, railway_district_id, is_first_login)
-SELECT id, 'EMP001', 'officer1@railpolice.in', '9876543210', 'Officer Rajesh Kumar', 'SHO', 'station_officer', 1, 1, true
-FROM auth.users WHERE email = 'officer1@railpolice.in';
-```
-
-**Important:** Set `is_first_login = true` so user must change password on first login.
-
-### 5. Run Development Server
-
-```bash
-npm run dev
-```
-
-Open http://localhost:3000
-
-### 6. Login
-
-- Email: `officer1@railpolice.in`
-- Password: `Officer@123`
-
-You'll be prompted to change your password on first login.
-
-## Troubleshooting
-
-### Login Issues
-
-**Most Common Problem:** User exists in Auth but not in `users` table
-
-**Quick Fix:**
-1. Verify user exists: Go to Supabase Dashboard > Authentication > Users
-2. Link the user by running the SQL above
-3. Verify user is active: `SELECT * FROM users WHERE email = 'officer1@railpolice.in';`
-4. Check `is_active = true` and `role` is `station_officer` or `data_operator`
-
-**See TROUBLESHOOTING.md for detailed solutions**
-
-### RLS Policy Errors
-
-If you get permission errors, check:
-1. RLS policies are enabled in Supabase
-2. User's `auth_id` matches `auth.users.id`
-3. User has `police_station_id` set
-
-### Storage Upload Errors
-
-1. Check bucket exists and is public
-2. Verify MIME types are allowed
-3. Check file size limits
-
-### Authentication Issues
-
-1. Verify user exists in `auth.users`
-2. Check user is linked in `users` table
-3. Verify role is `station_officer` or `data_operator`
-4. Check `.env.local` has correct Supabase credentials
-5. Restart dev server after changing `.env.local`
-
-## Production Deployment
-
-1. Build the project:
-```bash
-npm run build
-```
-
-2. Set environment variables in your hosting platform
-3. Deploy to Vercel, Railway, or your preferred platform
-
-## Support
-
-For issues, check:
-- Supabase logs in Dashboard
-- Browser console for errors
-- Network tab for API errors
-
-#
+1. Install Node.js 18+
+2. Clone repository
+3. Run:
+   ```bash
+   npm install
+   npm run build
+   npm start
