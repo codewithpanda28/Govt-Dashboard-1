@@ -27,15 +27,17 @@ export default function AddFIRPage() {
   const [districts, setDistricts] = useState<any[]>([])
   const [thanas, setThanas] = useState<any[]>([])
   const [courts, setCourts] = useState<any[]>([])
+  const [crimes, setCrimes] = useState<any[]>([])
 
   // Filtered data
   const [filteredZones, setFilteredZones] = useState<any[]>([])
   const [filteredDistricts, setFilteredDistricts] = useState<any[]>([])
   const [filteredThanas, setFilteredThanas] = useState<any[]>([])
 
-  // Form data
+  // Form data - 🆕 Added case_status field
   const [formData, setFormData] = useState({
-    accused_type: "unknown",
+    accused_type: "",
+    case_status: "open", // 🆕 Default status
     state_id: "",
     zone_id: "",
     district_id: "",
@@ -131,6 +133,20 @@ export default function AddFIRPage() {
     // Courts
     const { data: courtsData } = await supabase.from("courts").select("*").order("id")
     setCourts(courtsData || [])
+
+    // Crimes
+    const { data: crimesData, error: crimesError } = await supabase
+      .from("crimes")
+      .select("*")
+      .order("crime_name")
+    
+    if (crimesError) {
+      console.error("Crimes fetch error:", crimesError)
+      toast.error("Failed to load crimes")
+    } else {
+      console.log("✅ Crimes loaded:", crimesData)
+      setCrimes(crimesData || [])
+    }
   }
 
   // Get display name
@@ -323,7 +339,7 @@ export default function AddFIRPage() {
     }
   }
 
-  // Submit handler
+  // Submit handler - 🆕 Updated to include case_status
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -333,6 +349,11 @@ export default function AddFIRPage() {
 
     if (!formData.fir_number.trim()) {
       toast.error("FIR Number is required!")
+      return
+    }
+
+    if (!formData.accused_type) {
+      toast.error("Please select Crime Type!")
       return
     }
 
@@ -357,7 +378,7 @@ export default function AddFIRPage() {
         fir_number: formData.fir_number.trim(),
         user_id: user.id,
         accused_type: formData.accused_type,
-        case_status: 'open'
+        case_status: formData.case_status // 🆕 Include status
       }
 
       // IDs
@@ -553,15 +574,43 @@ export default function AddFIRPage() {
             <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
+                {/* Crime Type */}
                 <div>
-                  <Label className="text-gray-700 font-semibold">Accused Type <span className="text-red-600">*</span></Label>
+                  <Label className="text-gray-700 font-semibold">Crime Type <span className="text-red-600">*</span></Label>
                   <select
                     className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
                     value={formData.accused_type}
                     onChange={(e) => handleChange("accused_type", e.target.value)}
                   >
-                    <option value="unknown">Unknown</option>
-                    <option value="known">Known</option>
+                    <option value="">-- Select Crime Type --</option>
+                    {crimes.map(crime => (
+                      <option key={crime.id} value={crime.crime_name}>
+                        {crime.crime_name} ({crime.crime_code})
+                      </option>
+                    ))}
+                  </select>
+                  {crimes.length === 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">
+                      ⚠️ No crimes found. Add from Admin → Manage Crime
+                    </p>
+                  )}
+                </div>
+
+                {/* 🆕 Status Field Added */}
+                <div>
+                  <Label className="text-gray-700 font-semibold">Status</Label>
+                  <select
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    value={formData.case_status}
+                    onChange={(e) => handleChange("case_status", e.target.value)}
+                  >
+                    <option value="open">Open</option>
+                    <option value="registered">Registered</option>
+                    <option value="under_investigation">Under Investigation</option>
+                    <option value="chargesheet_filed">Chargesheet Filed</option>
+                    <option value="in_court">In Court</option>
+                    <option value="closed">Closed</option>
+                    <option value="disposed">Disposed</option>
                   </select>
                 </div>
 

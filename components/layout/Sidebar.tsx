@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Shield,
+  BarChart3
 } from "lucide-react"
 import { cn } from "@/lib/utils/cn"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ const menuItems = [
   { href: "/fir/list", label: "FIRs List", icon: FileText },
   { href: "/accused/list", label: "Accused List", icon: Users },
   { href: "/bail/list", label: "Bail List", icon: Scale },
+  { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/profile", label: "Profile", icon: User },
 ]
 

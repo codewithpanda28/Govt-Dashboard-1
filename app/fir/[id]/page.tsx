@@ -598,7 +598,7 @@ export default function FIRDetailPage() {
             </div>
           )}
 
-          {/* ========== ACCUSED TAB ========== */}
+          {/* ========== ACCUSED TAB - TABLE FORMAT ========== */}
           {activeTab === "accused" && (
             <Card className="border-2">
               <CardHeader className="bg-muted/30 border-b pb-4">
@@ -625,57 +625,48 @@ export default function FIRDetailPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {accusedList.map((accused) => (
-                      <div 
-                        key={accused.id} 
-                        className="border-2 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50"
-                        onClick={() => goToAccusedDetail(accused.id)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <User className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="font-semibold">{accused.name || "Unknown"}</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">NAME</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">FATHER'S NAME</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">AGE/GENDER</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">STATUS</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">MOBILE</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">AADHAAR</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">ADDRESS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {accusedList.map((accused, index) => (
+                          <tr key={accused.id} className="hover:bg-muted/50">
+                            <td className="px-4 py-3">{index + 1}</td>
+                            <td className="px-4 py-3 font-medium">{accused.name || "Unknown"}</td>
+                            <td className="px-4 py-3">{accused.father_name || "-"}</td>
+                            <td className="px-4 py-3">
+                              {accused.age || "-"} / {accused.gender || "-"}
+                            </td>
+                            <td className="px-4 py-3">
                               {getAccusedStatusBadge(accused.accused_type || "")}
-                            </div>
-                            {accused.father_name && (
-                              <p className="text-sm text-muted-foreground">S/o {accused.father_name}</p>
-                            )}
-                            <div className="text-sm mt-2 space-y-1">
-                              {accused.age && (
-                                <p className="text-muted-foreground">
-                                  Age: {accused.age} | {accused.gender || "N/A"}
-                                </p>
-                              )}
-                              {accused.mobile && (
-                                <p className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3 text-muted-foreground" /> {accused.mobile}
-                                </p>
-                              )}
-                              {accused.full_address && (
-                                <p className="flex items-start gap-1">
-                                  <MapPin className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
-                                  <span className="line-clamp-2">{accused.full_address}</span>
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <Button size="icon" variant="ghost" onClick={(e) => { e.stopPropagation(); goToAccusedDetail(accused.id); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                            </td>
+                            <td className="px-4 py-3">{accused.mobile || "-"}</td>
+                            <td className="px-4 py-3">{accused.aadhaar || "-"}</td>
+                            <td className="px-4 py-3 max-w-xs">
+                              <p className="truncate">{accused.full_address || "-"}</p>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* ========== BAILER TAB ========== */}
+          {/* ========== BAILER TAB - TABLE FORMAT ========== */}
           {activeTab === "bailer" && (
             <Card className="border-2">
               <CardHeader className="bg-muted/30 border-b pb-4">
@@ -702,54 +693,48 @@ export default function FIRDetailPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {bailerList.map((bailer) => (
-                      <div key={bailer.id} className="border-2 rounded-lg p-4 hover:shadow-md transition-shadow">
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center flex-shrink-0">
-                            <User className="h-6 w-6 text-yellow-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold">{bailer.name || "N/A"}</p>
-                            {bailer.father_name && (
-                              <p className="text-sm text-muted-foreground">S/o {bailer.father_name}</p>
-                            )}
-                            <div className="text-sm mt-2 space-y-1">
-                              {(bailer.age || bailer.gender) && (
-                                <p className="text-muted-foreground">
-                                  {bailer.age ? `Age: ${bailer.age}` : ""}
-                                  {bailer.age && bailer.gender ? " | " : ""}
-                                  {bailer.gender || ""}
-                                </p>
-                              )}
-                              {bailer.mobile && (
-                                <p className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3 text-muted-foreground" /> {bailer.mobile}
-                                </p>
-                              )}
-                              {bailer.aadhaar && (
-                                <p className="flex items-center gap-1">
-                                  <CreditCard className="h-3 w-3 text-muted-foreground" /> {bailer.aadhaar}
-                                </p>
-                              )}
-                              {bailer.full_address && (
-                                <p className="flex items-start gap-1">
-                                  <MapPin className="h-3 w-3 mt-0.5 text-muted-foreground flex-shrink-0" />
-                                  <span className="line-clamp-2">{bailer.full_address}</span>
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold">#</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">NAME</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">FATHER'S NAME</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">AGE/GENDER</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">MOBILE</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">AADHAAR</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">ADDRESS</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">ADDED ON</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {bailerList.map((bailer, index) => (
+                          <tr key={bailer.id} className="hover:bg-muted/50">
+                            <td className="px-4 py-3">{index + 1}</td>
+                            <td className="px-4 py-3 font-medium">{bailer.name || "N/A"}</td>
+                            <td className="px-4 py-3">{bailer.father_name || "-"}</td>
+                            <td className="px-4 py-3">
+                              {bailer.age || "-"} / {bailer.gender || "-"}
+                            </td>
+                            <td className="px-4 py-3">{bailer.mobile || "-"}</td>
+                            <td className="px-4 py-3">{bailer.aadhaar || "-"}</td>
+                            <td className="px-4 py-3 max-w-xs">
+                              <p className="truncate">{bailer.full_address || "-"}</p>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {formatDate(bailer.created_at || "")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* ========== HEARINGS TAB ========== */}
+          {/* ========== HEARINGS TAB - TABLE FORMAT (Already exists) ========== */}
           {activeTab === "hearings" && (
             <Card className="border-2">
               <CardHeader className="bg-muted/30 border-b pb-4">
@@ -782,7 +767,9 @@ export default function FIRDetailPage() {
                         <tr>
                           <th className="px-4 py-3 text-left text-xs font-bold">S.No.</th>
                           <th className="px-4 py-3 text-left text-xs font-bold">DATE</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">TIME</th>
                           <th className="px-4 py-3 text-left text-xs font-bold">COURT</th>
+                          <th className="px-4 py-3 text-left text-xs font-bold">PURPOSE</th>
                           <th className="px-4 py-3 text-left text-xs font-bold">STATUS</th>
                           <th className="px-4 py-3 text-left text-xs font-bold">REMARKS</th>
                         </tr>
@@ -792,7 +779,9 @@ export default function FIRDetailPage() {
                           <tr key={hearing.id} className="hover:bg-muted/50">
                             <td className="px-4 py-3">{index + 1}</td>
                             <td className="px-4 py-3 font-medium">{formatDate(hearing.hearing_date)}</td>
-                            <td className="px-4 py-3">{hearing.court_name || "N/A"}</td>
+                            <td className="px-4 py-3">{hearing.hearing_time || "-"}</td>
+                            <td className="px-4 py-3">{hearing.court_name || "-"}</td>
+                            <td className="px-4 py-3">{hearing.purpose || "-"}</td>
                             <td className="px-4 py-3">
                               <Badge variant="outline">{hearing.status || "Scheduled"}</Badge>
                             </td>

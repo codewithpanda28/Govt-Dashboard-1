@@ -463,10 +463,12 @@ export default function EditFIRPage() {
     toast.success("Hearing removed")
   }
 
-  // Save
+  // Save - FIXED LOGIC
   const handleSave = async () => {
     try {
       setSaving(true)
+      
+      console.log("🔄 Starting save process...")
 
       const selectedState = states.find(s => s.id === parseInt(formData.state_id))
       const selectedZone = zones.find(z => z.id === parseInt(formData.zone_id))
@@ -474,6 +476,7 @@ export default function EditFIRPage() {
       const selectedThana = thanas.find(t => t.id === parseInt(formData.thana_id))
       const selectedCourt = courts.find(c => c.id === parseInt(formData.court_id))
 
+      // Build update data - FIXED
       const updateData: Record<string, any> = {
         case_status: formData.case_status,
         law_sections_text: formData.law_sections_text || null,
@@ -495,20 +498,25 @@ export default function EditFIRPage() {
         updated_at: new Date().toISOString()
       }
 
+      // IDs and Names
       if (formData.state_id) {
         updateData.state_id = parseInt(formData.state_id)
+        updateData.state = getName(selectedState)
         updateData.state_name = getName(selectedState)
       }
       if (formData.zone_id) {
         updateData.zone_id = parseInt(formData.zone_id)
+        updateData.zone = getName(selectedZone)
         updateData.zone_name = getName(selectedZone)
       }
       if (formData.district_id) {
-        updateData.district_id = parseInt(formData.district_id)
+        updateData.railway_district_id = parseInt(formData.district_id) // FIXED: Use railway_district_id
+        updateData.district = getName(selectedDistrict)
         updateData.district_name = getName(selectedDistrict)
       }
       if (formData.thana_id) {
         updateData.thana_id = parseInt(formData.thana_id)
+        updateData.thana = getName(selectedThana)
         updateData.thana_name = getName(selectedThana)
       }
       if (formData.court_id) {
@@ -516,12 +524,20 @@ export default function EditFIRPage() {
         updateData.court_name = getName(selectedCourt)
       }
 
+      console.log("📝 Update data:", updateData)
+
+      // Update FIR
       const { error: firError } = await supabase
         .from("fir_records")
         .update(updateData)
         .eq("id", firId)
 
-      if (firError) throw firError
+      if (firError) {
+        console.error("❌ FIR update error:", firError)
+        throw firError
+      }
+
+      console.log("✅ FIR updated successfully")
 
       // Update Accused
       for (const accused of accusedList) {
@@ -550,9 +566,11 @@ export default function EditFIRPage() {
         }
 
         if (accused.isNew) {
-          await supabase.from("accused_details").insert(accusedData)
+          const { error } = await supabase.from("accused_details").insert(accusedData)
+          if (error) console.error("Accused insert error:", error)
         } else if (accused.id) {
-          await supabase.from("accused_details").update(accusedData).eq("id", accused.id)
+          const { error } = await supabase.from("accused_details").update(accusedData).eq("id", accused.id)
+          if (error) console.error("Accused update error:", error)
         }
       }
 
@@ -586,9 +604,11 @@ export default function EditFIRPage() {
         }
 
         if (bailer.isNew) {
-          await supabase.from("bailer_details").insert(bailerData)
+          const { error } = await supabase.from("bailer_details").insert(bailerData)
+          if (error) console.error("Bailer insert error:", error)
         } else if (bailer.id) {
-          await supabase.from("bailer_details").update(bailerData).eq("id", bailer.id)
+          const { error } = await supabase.from("bailer_details").update(bailerData).eq("id", bailer.id)
+          if (error) console.error("Bailer update error:", error)
         }
       }
 
@@ -613,9 +633,11 @@ export default function EditFIRPage() {
         }
 
         if (hearing.isNew) {
-          await supabase.from("hearing_history").insert(hearingData)
+          const { error } = await supabase.from("hearing_history").insert(hearingData)
+          if (error) console.error("Hearing insert error:", error)
         } else if (hearing.id) {
-          await supabase.from("hearing_history").update(hearingData).eq("id", hearing.id)
+          const { error } = await supabase.from("hearing_history").update(hearingData).eq("id", hearing.id)
+          if (error) console.error("Hearing update error:", error)
         }
       }
 
@@ -625,7 +647,7 @@ export default function EditFIRPage() {
 
     } catch (err: any) {
       console.error("Save error:", err)
-      toast.error("Failed to save")
+      toast.error("Failed to save: " + (err.message || "Unknown error"))
     } finally {
       setSaving(false)
     }
@@ -702,59 +724,82 @@ export default function EditFIRPage() {
                     </div>
                     <div>
                       <Label>Case Status</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.case_status} onChange={(e) => handleChange("case_status", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.case_status} onChange={(e) => handleChange("case_status", e.target.value)}>
                         <option value="open">Open</option>
+                        <option value="registered">Registered</option>
                         <option value="under_investigation">Under Investigation</option>
-                        <option value="disposal">Disposal</option>
+                        <option value="chargesheet_filed">Chargesheet Filed</option>
+                        <option value="in_court">In Court</option>
                         <option value="closed">Closed</option>
+                        <option value="disposed">Disposed</option>
                       </select>
                     </div>
                     <div>
                       <Label>Date of FIR</Label>
-                      <Input type="date" className="mt-1" value={formData.incident_date} onChange={(e) => handleChange("incident_date", e.target.value)} />
+                      <Input type="date" className="mt-1 bg-white" value={formData.incident_date} onChange={(e) => handleChange("incident_date", e.target.value)} />
                     </div>
                     <div>
                       <Label>State</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.state_id} onChange={(e) => handleChange("state_id", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.state_id} onChange={(e) => handleChange("state_id", e.target.value)}>
                         <option value="">-- Select --</option>
                         {states.map(s => <option key={s.id} value={s.id}>{getName(s)}</option>)}
                       </select>
                     </div>
                     <div>
                       <Label>Zone</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.zone_id} onChange={(e) => handleChange("zone_id", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.zone_id} onChange={(e) => handleChange("zone_id", e.target.value)}>
                         <option value="">-- Select --</option>
                         {zones.map(z => <option key={z.id} value={z.id}>{getName(z)}</option>)}
                       </select>
                     </div>
                     <div>
                       <Label>District</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.district_id} onChange={(e) => handleChange("district_id", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.district_id} onChange={(e) => handleChange("district_id", e.target.value)}>
                         <option value="">-- Select --</option>
                         {districts.map(d => <option key={d.id} value={d.id}>{getName(d)}</option>)}
                       </select>
                     </div>
                     <div>
                       <Label>Thana</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.thana_id} onChange={(e) => handleChange("thana_id", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.thana_id} onChange={(e) => handleChange("thana_id", e.target.value)}>
                         <option value="">-- Select --</option>
                         {thanas.map(t => <option key={t.id} value={t.id}>{getName(t)}</option>)}
                       </select>
                     </div>
                     <div>
                       <Label>Court</Label>
-                      <select className="w-full mt-1 px-3 py-2 border rounded" value={formData.court_id} onChange={(e) => handleChange("court_id", e.target.value)}>
+                      <select className="w-full mt-1 px-3 py-2 border rounded bg-white" value={formData.court_id} onChange={(e) => handleChange("court_id", e.target.value)}>
                         <option value="">-- Select --</option>
                         {courts.map(c => <option key={c.id} value={c.id}>{getName(c)}</option>)}
                       </select>
                     </div>
                     <div>
                       <Label>Section</Label>
-                      <Input className="mt-1" value={formData.law_sections_text} onChange={(e) => handleChange("law_sections_text", e.target.value)} />
+                      <Input className="mt-1 bg-white" value={formData.law_sections_text} onChange={(e) => handleChange("law_sections_text", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Incident Time</Label>
+                      <Input type="time" className="mt-1 bg-white" value={formData.incident_time} onChange={(e) => handleChange("incident_time", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Train Number</Label>
+                      <Input className="mt-1 bg-white" value={formData.train_number_manual} onChange={(e) => handleChange("train_number_manual", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Train Name</Label>
+                      <Input className="mt-1 bg-white" value={formData.train_name_manual} onChange={(e) => handleChange("train_name_manual", e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>Station Code</Label>
+                      <Input className="mt-1 bg-white" value={formData.station_code} onChange={(e) => handleChange("station_code", e.target.value)} />
+                    </div>
+                    <div className="col-span-2">
+                      <Label>Station Name</Label>
+                      <Input className="mt-1 bg-white" value={formData.station_name_manual} onChange={(e) => handleChange("station_name_manual", e.target.value)} />
                     </div>
                     <div className="col-span-3">
                       <Label>Brief Description</Label>
-                      <Textarea className="mt-1" value={formData.brief_description} onChange={(e) => handleChange("brief_description", e.target.value)} rows={3} />
+                      <Textarea className="mt-1 bg-white" value={formData.brief_description} onChange={(e) => handleChange("brief_description", e.target.value)} rows={3} />
                     </div>
                   </div>
                 </div>
@@ -793,15 +838,15 @@ export default function EditFIRPage() {
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <Label>Name *</Label>
-                            <Input value={accused.name} onChange={(e) => updateAccused(idx, "name", e.target.value)} placeholder="Full Name" />
+                            <Input className="bg-white" value={accused.name} onChange={(e) => updateAccused(idx, "name", e.target.value)} placeholder="Full Name" />
                           </div>
                           <div>
                             <Label>Aadhaar No.</Label>
-                            <Input value={accused.aadhaar} onChange={(e) => updateAccused(idx, "aadhaar", e.target.value)} placeholder="12-digit" maxLength={12} />
+                            <Input className="bg-white" value={accused.aadhaar} onChange={(e) => updateAccused(idx, "aadhaar", e.target.value)} placeholder="12-digit" maxLength={12} />
                           </div>
                           <div>
                             <Label>Gender</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={accused.gender} onChange={(e) => updateAccused(idx, "gender", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={accused.gender} onChange={(e) => updateAccused(idx, "gender", e.target.value)}>
                               <option value="male">Male</option>
                               <option value="female">Female</option>
                               <option value="other">Other</option>
@@ -809,49 +854,49 @@ export default function EditFIRPage() {
                           </div>
                           <div>
                             <Label>DOB</Label>
-                            <Input type="date" value={accused.dob} onChange={(e) => updateAccused(idx, "dob", e.target.value)} max={new Date().toISOString().split('T')[0]} />
+                            <Input className="bg-white" type="date" value={accused.dob} onChange={(e) => updateAccused(idx, "dob", e.target.value)} max={new Date().toISOString().split('T')[0]} />
                           </div>
                           <div>
                             <Label>Age</Label>
-                            <Input value={accused.age} readOnly className="bg-gray-100" placeholder="Auto" />
+                            <Input className="bg-white" value={accused.age} readOnly placeholder="Auto" />
                           </div>
                           <div>
                             <Label>PAN No.</Label>
-                            <Input value={accused.pan} onChange={(e) => updateAccused(idx, "pan", e.target.value.toUpperCase())} placeholder="PAN" maxLength={10} style={{textTransform:'uppercase'}} />
+                            <Input className="bg-white" value={accused.pan} onChange={(e) => updateAccused(idx, "pan", e.target.value.toUpperCase())} placeholder="PAN" maxLength={10} style={{textTransform:'uppercase'}} />
                           </div>
                           <div>
                             <Label>Father's Name</Label>
-                            <Input value={accused.father_name} onChange={(e) => updateAccused(idx, "father_name", e.target.value)} placeholder="Father's Name" />
+                            <Input className="bg-white" value={accused.father_name} onChange={(e) => updateAccused(idx, "father_name", e.target.value)} placeholder="Father's Name" />
                           </div>
                           <div>
                             <Label>State</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={accused.state_id} onChange={(e) => updateAccused(idx, "state_id", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={accused.state_id} onChange={(e) => updateAccused(idx, "state_id", e.target.value)}>
                               <option value="">Select</option>
                               {states.map(s => <option key={s.id} value={s.id}>{getName(s)}</option>)}
                             </select>
                           </div>
                           <div>
                             <Label>District</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={accused.district_id} onChange={(e) => updateAccused(idx, "district_id", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={accused.district_id} onChange={(e) => updateAccused(idx, "district_id", e.target.value)}>
                               <option value="">Select</option>
                               {districts.map(d => <option key={d.id} value={d.id}>{getName(d)}</option>)}
                             </select>
                           </div>
                           <div className="col-span-2">
                             <Label>Full Address</Label>
-                            <Input value={accused.full_address} onChange={(e) => updateAccused(idx, "full_address", e.target.value)} placeholder="Complete Address" />
+                            <Input className="bg-white" value={accused.full_address} onChange={(e) => updateAccused(idx, "full_address", e.target.value)} placeholder="Complete Address" />
                           </div>
                           <div>
                             <Label>PIN Code</Label>
-                            <Input value={accused.pin_code} onChange={(e) => updateAccused(idx, "pin_code", e.target.value)} placeholder="6-digit" maxLength={6} />
+                            <Input className="bg-white" value={accused.pin_code} onChange={(e) => updateAccused(idx, "pin_code", e.target.value)} placeholder="6-digit" maxLength={6} />
                           </div>
                           <div>
                             <Label>Mobile</Label>
-                            <Input value={accused.mobile} onChange={(e) => updateAccused(idx, "mobile", e.target.value)} placeholder="10-digit" maxLength={10} />
+                            <Input className="bg-white" value={accused.mobile} onChange={(e) => updateAccused(idx, "mobile", e.target.value)} placeholder="10-digit" maxLength={10} />
                           </div>
                           <div className="col-span-2">
                             <Label>Email ID</Label>
-                            <Input type="email" value={accused.email} onChange={(e) => updateAccused(idx, "email", e.target.value)} placeholder="email@example.com" />
+                            <Input className="bg-white" type="email" value={accused.email} onChange={(e) => updateAccused(idx, "email", e.target.value)} placeholder="email@example.com" />
                           </div>
                         </div>
                       </div>
@@ -893,15 +938,15 @@ export default function EditFIRPage() {
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <Label>Name *</Label>
-                            <Input value={bailer.name} onChange={(e) => updateBailer(idx, "name", e.target.value)} placeholder="Full Name" />
+                            <Input className="bg-white" value={bailer.name} onChange={(e) => updateBailer(idx, "name", e.target.value)} placeholder="Full Name" />
                           </div>
                           <div>
                             <Label>Aadhaar No.</Label>
-                            <Input value={bailer.aadhaar} onChange={(e) => updateBailer(idx, "aadhaar", e.target.value)} placeholder="12-digit" maxLength={12} />
+                            <Input className="bg-white" value={bailer.aadhaar} onChange={(e) => updateBailer(idx, "aadhaar", e.target.value)} placeholder="12-digit" maxLength={12} />
                           </div>
                           <div>
                             <Label>Gender</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={bailer.gender} onChange={(e) => updateBailer(idx, "gender", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={bailer.gender} onChange={(e) => updateBailer(idx, "gender", e.target.value)}>
                               <option value="male">Male</option>
                               <option value="female">Female</option>
                               <option value="other">Other</option>
@@ -909,53 +954,53 @@ export default function EditFIRPage() {
                           </div>
                           <div>
                             <Label>DOB</Label>
-                            <Input type="date" value={bailer.dob} onChange={(e) => updateBailer(idx, "dob", e.target.value)} max={new Date().toISOString().split('T')[0]} />
+                            <Input className="bg-white" type="date" value={bailer.dob} onChange={(e) => updateBailer(idx, "dob", e.target.value)} max={new Date().toISOString().split('T')[0]} />
                           </div>
                           <div>
                             <Label>Age</Label>
-                            <Input value={bailer.age} readOnly className="bg-gray-100" placeholder="Auto" />
+                            <Input className="bg-white" value={bailer.age} readOnly placeholder="Auto" />
                           </div>
                           <div>
                             <Label>PAN No.</Label>
-                            <Input value={bailer.pan} onChange={(e) => updateBailer(idx, "pan", e.target.value.toUpperCase())} placeholder="PAN" maxLength={10} style={{textTransform:'uppercase'}} />
+                            <Input className="bg-white" value={bailer.pan} onChange={(e) => updateBailer(idx, "pan", e.target.value.toUpperCase())} placeholder="PAN" maxLength={10} style={{textTransform:'uppercase'}} />
                           </div>
                           <div>
                             <Label>Father's Name</Label>
-                            <Input value={bailer.father_name} onChange={(e) => updateBailer(idx, "father_name", e.target.value)} placeholder="Father's Name" />
+                            <Input className="bg-white" value={bailer.father_name} onChange={(e) => updateBailer(idx, "father_name", e.target.value)} placeholder="Father's Name" />
                           </div>
                           <div>
                             <Label>State</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={bailer.state_id} onChange={(e) => updateBailer(idx, "state_id", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={bailer.state_id} onChange={(e) => updateBailer(idx, "state_id", e.target.value)}>
                               <option value="">Select</option>
                               {states.map(s => <option key={s.id} value={s.id}>{getName(s)}</option>)}
                             </select>
                           </div>
                           <div>
                             <Label>District</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={bailer.district_id} onChange={(e) => updateBailer(idx, "district_id", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={bailer.district_id} onChange={(e) => updateBailer(idx, "district_id", e.target.value)}>
                               <option value="">Select</option>
                               {districts.map(d => <option key={d.id} value={d.id}>{getName(d)}</option>)}
                             </select>
                           </div>
                           <div className="col-span-2">
                             <Label>Full Address</Label>
-                            <Input value={bailer.full_address} onChange={(e) => updateBailer(idx, "full_address", e.target.value)} placeholder="Complete Address" />
+                            <Input className="bg-white" value={bailer.full_address} onChange={(e) => updateBailer(idx, "full_address", e.target.value)} placeholder="Complete Address" />
                           </div>
                           <div>
                             <Label>PIN Code</Label>
-                            <Input value={bailer.pin_code} onChange={(e) => updateBailer(idx, "pin_code", e.target.value)} placeholder="6-digit" maxLength={6} />
+                            <Input className="bg-white" value={bailer.pin_code} onChange={(e) => updateBailer(idx, "pin_code", e.target.value)} placeholder="6-digit" maxLength={6} />
                           </div>
                           <div>
                             <Label>Mobile</Label>
-                            <Input value={bailer.mobile} onChange={(e) => updateBailer(idx, "mobile", e.target.value)} placeholder="10-digit" maxLength={10} />
+                            <Input className="bg-white" value={bailer.mobile} onChange={(e) => updateBailer(idx, "mobile", e.target.value)} placeholder="10-digit" maxLength={10} />
                           </div>
                           <div className="col-span-2">
                             <Label>Email ID</Label>
-                            <Input type="email" value={bailer.email} onChange={(e) => updateBailer(idx, "email", e.target.value)} placeholder="email@example.com" />
+                            <Input className="bg-white" type="email" value={bailer.email} onChange={(e) => updateBailer(idx, "email", e.target.value)} placeholder="email@example.com" />
                           </div>
                           <div className="col-span-3">
-                            <Label>Brief (Taxarea)</Label>
-                            <Textarea value={bailer.brief} onChange={(e) => updateBailer(idx, "brief", e.target.value)} placeholder="Enter brief details..." rows={3} />
+                            <Label>Brief (Textarea)</Label>
+                            <Textarea className="bg-white" value={bailer.brief} onChange={(e) => updateBailer(idx, "brief", e.target.value)} placeholder="Enter brief details..." rows={3} />
                           </div>
                           <div className="col-span-3">
                             <Label>Attachment (FIR Copy)</Label>
@@ -1022,15 +1067,15 @@ export default function EditFIRPage() {
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <Label>Hearing Date *</Label>
-                            <Input type="date" value={hearing.hearing_date} onChange={(e) => updateHearing(idx, "hearing_date", e.target.value)} />
+                            <Input className="bg-white" type="date" value={hearing.hearing_date} onChange={(e) => updateHearing(idx, "hearing_date", e.target.value)} />
                           </div>
                           <div>
                             <Label>Hearing Time</Label>
-                            <Input type="time" value={hearing.hearing_time} onChange={(e) => updateHearing(idx, "hearing_time", e.target.value)} />
+                            <Input className="bg-white" type="time" value={hearing.hearing_time} onChange={(e) => updateHearing(idx, "hearing_time", e.target.value)} />
                           </div>
                           <div>
                             <Label>Hearing Type</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={hearing.hearing_type} onChange={(e) => updateHearing(idx, "hearing_type", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={hearing.hearing_type} onChange={(e) => updateHearing(idx, "hearing_type", e.target.value)}>
                               <option value="regular">Regular Hearing</option>
                               <option value="bail">Bail Hearing</option>
                               <option value="chargesheet">Charge Sheet</option>
@@ -1041,7 +1086,7 @@ export default function EditFIRPage() {
                           </div>
                           <div>
                             <Label>Hearing Status</Label>
-                            <select className="w-full px-3 py-2 border rounded" value={hearing.hearing_status} onChange={(e) => updateHearing(idx, "hearing_status", e.target.value)}>
+                            <select className="w-full px-3 py-2 border rounded bg-white" value={hearing.hearing_status} onChange={(e) => updateHearing(idx, "hearing_status", e.target.value)}>
                               <option value="scheduled">Scheduled</option>
                               <option value="completed">Completed</option>
                               <option value="adjourned">Adjourned</option>
@@ -1050,35 +1095,35 @@ export default function EditFIRPage() {
                           </div>
                           <div className="col-span-2">
                             <Label>Next Hearing Date</Label>
-                            <Input type="date" value={hearing.next_hearing_date} onChange={(e) => updateHearing(idx, "next_hearing_date", e.target.value)} min={hearing.hearing_date} />
+                            <Input className="bg-white" type="date" value={hearing.next_hearing_date} onChange={(e) => updateHearing(idx, "next_hearing_date", e.target.value)} min={hearing.hearing_date} />
                           </div>
                           <div>
                             <Label>Court Name</Label>
-                            <Input value={hearing.court_name} onChange={(e) => updateHearing(idx, "court_name", e.target.value)} placeholder="Court Name" />
+                            <Input className="bg-white" value={hearing.court_name} onChange={(e) => updateHearing(idx, "court_name", e.target.value)} placeholder="Court Name" />
                           </div>
                           <div className="col-span-2">
                             <Label>Judge Name</Label>
-                            <Input value={hearing.judge_name} onChange={(e) => updateHearing(idx, "judge_name", e.target.value)} placeholder="Presiding Judge" />
+                            <Input className="bg-white" value={hearing.judge_name} onChange={(e) => updateHearing(idx, "judge_name", e.target.value)} placeholder="Presiding Judge" />
                           </div>
                           <div>
                             <Label>Attended By (IO)</Label>
-                            <Input value={hearing.attended_by} onChange={(e) => updateHearing(idx, "attended_by", e.target.value)} placeholder="Officer" />
+                            <Input className="bg-white" value={hearing.attended_by} onChange={(e) => updateHearing(idx, "attended_by", e.target.value)} placeholder="Officer" />
                           </div>
                           <div>
                             <Label>Prosecutor Name</Label>
-                            <Input value={hearing.prosecutor_name} onChange={(e) => updateHearing(idx, "prosecutor_name", e.target.value)} placeholder="Public Prosecutor" />
+                            <Input className="bg-white" value={hearing.prosecutor_name} onChange={(e) => updateHearing(idx, "prosecutor_name", e.target.value)} placeholder="Public Prosecutor" />
                           </div>
                           <div>
                             <Label>Defense Lawyer</Label>
-                            <Input value={hearing.defense_lawyer} onChange={(e) => updateHearing(idx, "defense_lawyer", e.target.value)} placeholder="Defense Advocate" />
+                            <Input className="bg-white" value={hearing.defense_lawyer} onChange={(e) => updateHearing(idx, "defense_lawyer", e.target.value)} placeholder="Defense Advocate" />
                           </div>
                           <div className="col-span-3">
                             <Label>Order Passed</Label>
-                            <Textarea value={hearing.order_passed} onChange={(e) => updateHearing(idx, "order_passed", e.target.value)} placeholder="Court orders..." rows={2} />
+                            <Textarea className="bg-white" value={hearing.order_passed} onChange={(e) => updateHearing(idx, "order_passed", e.target.value)} placeholder="Court orders..." rows={2} />
                           </div>
                           <div className="col-span-3">
                             <Label>Remarks / Notes</Label>
-                            <Textarea value={hearing.remarks} onChange={(e) => updateHearing(idx, "remarks", e.target.value)} placeholder="Additional remarks..." rows={2} />
+                            <Textarea className="bg-white" value={hearing.remarks} onChange={(e) => updateHearing(idx, "remarks", e.target.value)} placeholder="Additional remarks..." rows={2} />
                           </div>
                         </div>
                       </div>
@@ -1096,15 +1141,15 @@ export default function EditFIRPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>IO Name</Label>
-                      <Input value={formData.io_name} onChange={(e) => handleChange("io_name", e.target.value)} placeholder="Officer Name" />
+                      <Input className="bg-white" value={formData.io_name} onChange={(e) => handleChange("io_name", e.target.value)} placeholder="Officer Name" />
                     </div>
                     <div>
                       <Label>Belt No.</Label>
-                      <Input value={formData.io_belt_no} onChange={(e) => handleChange("io_belt_no", e.target.value)} placeholder="Belt Number" />
+                      <Input className="bg-white" value={formData.io_belt_no} onChange={(e) => handleChange("io_belt_no", e.target.value)} placeholder="Belt Number" />
                     </div>
                     <div>
                       <Label>Rank</Label>
-                      <select className="w-full px-3 py-2 border rounded" value={formData.io_rank} onChange={(e) => handleChange("io_rank", e.target.value)}>
+                      <select className="w-full px-3 py-2 border rounded bg-white" value={formData.io_rank} onChange={(e) => handleChange("io_rank", e.target.value)}>
                         <option value="">Select Rank</option>
                         <option value="Constable">Constable</option>
                         <option value="HC">Head Constable</option>
@@ -1115,7 +1160,7 @@ export default function EditFIRPage() {
                     </div>
                     <div>
                       <Label>Mobile</Label>
-                      <Input value={formData.io_mobile} onChange={(e) => handleChange("io_mobile", e.target.value)} placeholder="10-digit mobile" maxLength={10} />
+                      <Input className="bg-white" value={formData.io_mobile} onChange={(e) => handleChange("io_mobile", e.target.value)} placeholder="10-digit mobile" maxLength={10} />
                     </div>
                   </div>
                 </div>
@@ -1124,19 +1169,19 @@ export default function EditFIRPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Lawyer Name</Label>
-                      <Input value={formData.lawyer_name} onChange={(e) => handleChange("lawyer_name", e.target.value)} placeholder="Advocate Name" />
+                      <Input className="bg-white" value={formData.lawyer_name} onChange={(e) => handleChange("lawyer_name", e.target.value)} placeholder="Advocate Name" />
                     </div>
                     <div>
                       <Label>Bar Council No.</Label>
-                      <Input value={formData.bar_council_no} onChange={(e) => handleChange("bar_council_no", e.target.value)} placeholder="Bar Council Number" />
+                      <Input className="bg-white" value={formData.bar_council_no} onChange={(e) => handleChange("bar_council_no", e.target.value)} placeholder="Bar Council Number" />
                     </div>
                     <div>
                       <Label>Mobile</Label>
-                      <Input value={formData.lawyer_mobile} onChange={(e) => handleChange("lawyer_mobile", e.target.value)} placeholder="10-digit mobile" maxLength={10} />
+                      <Input className="bg-white" value={formData.lawyer_mobile} onChange={(e) => handleChange("lawyer_mobile", e.target.value)} placeholder="10-digit mobile" maxLength={10} />
                     </div>
                     <div>
                       <Label>Email</Label>
-                      <Input type="email" value={formData.lawyer_email} onChange={(e) => handleChange("lawyer_email", e.target.value)} placeholder="email@example.com" />
+                      <Input className="bg-white" type="email" value={formData.lawyer_email} onChange={(e) => handleChange("lawyer_email", e.target.value)} placeholder="email@example.com" />
                     </div>
                   </div>
                 </div>
