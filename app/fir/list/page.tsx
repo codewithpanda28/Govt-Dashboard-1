@@ -21,16 +21,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { 
   Search, Eye, Edit, MoreHorizontal, FileText, Plus, 
   RefreshCw, AlertCircle, Download, ChevronLeft, 
-  User, Users, AlertTriangle
+  User, Users, AlertTriangle, Phone,
+  ChevronDown, ChevronUp, History, Link2, X
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
@@ -50,25 +45,65 @@ interface FIR {
   bailer_count?: number
 }
 
-interface Person {
+interface PreviousCase {
+  fir_id: number
+  fir_number: string
+  district_name: string
+  thana_name: string
+  case_status: string
+  incident_date: string
+  role: string
+}
+
+interface PersonWithHistory {
   id: number
   fir_id: number
   name: string
-  father_name: string
-  age: number
-  gender: string
-  mobile: string
-  email: string
-  aadhaar: string
-  state_name: string
-  district_name: string
-  full_address: string
-  pin_code: string
+  father_name: string | null
+  age: number | string | null
+  gender: string | null
+  mobile: string | null
+  email: string | null
+  aadhaar: string | null
+  pan: string | null
+  state_name: string | null
+  district_name: string | null
+  full_address: string | null
+  pin_code: string | null
+  accused_type?: string | null
+  accused_id?: number | null
+  accused_name?: string | null
+  fir_number?: string
+  fir_district?: string
+  fir_thana?: string
+  fir_status?: string
+  fir_date?: string
+  previousCases: PreviousCase[]
+  occurrence_count: number
 }
 
-interface PersonWithFIRs extends Person {
-  fir_numbers: string[]
-  occurrence_count: number
+// Modal Component
+const Modal = ({ isOpen, onClose, title, subtitle, children }: any) => {
+  if (!isOpen) return null
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-xl">
+        <div className="p-4 border-b flex items-center justify-between bg-gray-50">
+          <div>
+            <h2 className="text-lg font-bold">{title}</h2>
+            {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="p-4 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function FIRListPage() {
@@ -83,9 +118,12 @@ export default function FIRListPage() {
   // Modal States
   const [showModal, setShowModal] = useState(false)
   const [modalType, setModalType] = useState<"accused" | "bailer" | "all-accused" | "all-bailer">("accused")
-  const [modalData, setModalData] = useState<PersonWithFIRs[]>([])
+  const [modalData, setModalData] = useState<PersonWithHistory[]>([])
   const [modalLoading, setModalLoading] = useState(false)
   const [selectedFirNumber, setSelectedFirNumber] = useState("")
+
+  // Expanded History States
+  const [expandedPerson, setExpandedPerson] = useState<number | null>(null)
 
   useEffect(() => {
     checkAuth()
@@ -108,7 +146,6 @@ export default function FIRListPage() {
       }
       setError(null)
 
-      // Fetch FIRs
       const { data: firData, error: fetchError } = await supabase
         .from("fir_records")
         .select("*")
@@ -121,17 +158,14 @@ export default function FIRListPage() {
         return
       }
 
-      // Fetch accused counts
       const { data: accusedCounts } = await supabase
         .from("accused_details")
         .select("fir_id")
 
-      // Fetch bailer counts
       const { data: bailerCounts } = await supabase
         .from("bailer_details")
         .select("fir_id")
 
-      // Count accused and bailers for each FIR
       const accusedCountMap: Record<number, number> = {}
       const bailerCountMap: Record<number, number> = {}
 
@@ -143,7 +177,6 @@ export default function FIRListPage() {
         bailerCountMap[b.fir_id] = (bailerCountMap[b.fir_id] || 0) + 1
       })
 
-      // Merge counts with FIR data
       const enrichedData = (firData || []).map(fir => ({
         ...fir,
         accused_count: accusedCountMap[fir.id] || 0,
@@ -164,13 +197,105 @@ export default function FIRListPage() {
     }
   }
 
-  // 🆕 Fetch Accused Details for specific FIR
+  // Get Previous Cases for a person
+  const getPreviousCases = async (
+    mobile: string | null, 
+    aadhaar: string | null, 
+    currentFirId: number
+  ): Promise<PreviousCase[]> => {
+    const previousCases: PreviousCase[] = []
+
+    if (!mobile && !aadhaar) return previousCases
+
+    try {
+      // Check in accused_details
+      let accusedQuery = supabase
+        .from("accused_details")
+        .select("fir_id")
+        .neq("fir_id", currentFirId)
+
+      if (mobile && aadhaar) {
+        accusedQuery = accusedQuery.or(`mobile.eq.${mobile},aadhaar.eq.${aadhaar}`)
+      } else if (mobile) {
+        accusedQuery = accusedQuery.eq("mobile", mobile)
+      } else if (aadhaar) {
+        accusedQuery = accusedQuery.eq("aadhaar", aadhaar)
+      }
+
+      const { data: accusedRecords } = await accusedQuery
+
+      if (accusedRecords && accusedRecords.length > 0) {
+        const firIds = [...new Set(accusedRecords.map(a => a.fir_id))]
+        const { data: firs } = await supabase
+          .from("fir_records")
+          .select("id, fir_number, district_name, thana_name, case_status, incident_date")
+          .in("id", firIds)
+
+        firs?.forEach(f => {
+          previousCases.push({
+            fir_id: f.id,
+            fir_number: f.fir_number,
+            district_name: f.district_name,
+            thana_name: f.thana_name,
+            case_status: f.case_status,
+            incident_date: f.incident_date,
+            role: "Accused"
+          })
+        })
+      }
+
+      // Check in bailer_details
+      let bailerQuery = supabase
+        .from("bailer_details")
+        .select("fir_id")
+        .neq("fir_id", currentFirId)
+
+      if (mobile && aadhaar) {
+        bailerQuery = bailerQuery.or(`mobile.eq.${mobile},aadhaar.eq.${aadhaar}`)
+      } else if (mobile) {
+        bailerQuery = bailerQuery.eq("mobile", mobile)
+      } else if (aadhaar) {
+        bailerQuery = bailerQuery.eq("aadhaar", aadhaar)
+      }
+
+      const { data: bailerRecords } = await bailerQuery
+
+      if (bailerRecords && bailerRecords.length > 0) {
+        const firIds = [...new Set(bailerRecords.map(b => b.fir_id))]
+        const { data: firs } = await supabase
+          .from("fir_records")
+          .select("id, fir_number, district_name, thana_name, case_status, incident_date")
+          .in("id", firIds)
+
+        firs?.forEach(f => {
+          if (!previousCases.find(pc => pc.fir_id === f.id)) {
+            previousCases.push({
+              fir_id: f.id,
+              fir_number: f.fir_number,
+              district_name: f.district_name,
+              thana_name: f.thana_name,
+              case_status: f.case_status,
+              incident_date: f.incident_date,
+              role: "Bailer"
+            })
+          }
+        })
+      }
+    } catch (err) {
+      console.error("Error getting previous cases:", err)
+    }
+
+    return previousCases
+  }
+
+  // Fetch Accused Details for specific FIR with history
   const fetchAccusedDetails = async (firId: number, firNumber: string) => {
     try {
       setModalLoading(true)
       setModalType("accused")
       setSelectedFirNumber(firNumber)
       setShowModal(true)
+      setExpandedPerson(null)
 
       const { data, error } = await supabase
         .from("accused_details")
@@ -184,12 +309,23 @@ export default function FIRListPage() {
         return
       }
 
-      // Add FIR number to each record
-      const enrichedData = (data || []).map(person => ({
-        ...person,
-        fir_numbers: [firNumber],
-        occurrence_count: 1
-      }))
+      const fir = firList.find(f => f.id === firId)
+
+      const enrichedData: PersonWithHistory[] = []
+      
+      for (const person of data || []) {
+        const previousCases = await getPreviousCases(person.mobile, person.aadhaar, firId)
+        enrichedData.push({
+          ...person,
+          fir_number: firNumber,
+          fir_district: fir?.district_name,
+          fir_thana: fir?.thana_name,
+          fir_status: fir?.case_status,
+          fir_date: fir?.incident_date,
+          previousCases,
+          occurrence_count: previousCases.length + 1
+        })
+      }
 
       setModalData(enrichedData)
     } catch (err: any) {
@@ -200,13 +336,14 @@ export default function FIRListPage() {
     }
   }
 
-  // 🆕 Fetch Bailer Details for specific FIR
+  // Fetch Bailer Details for specific FIR with history
   const fetchBailerDetails = async (firId: number, firNumber: string) => {
     try {
       setModalLoading(true)
       setModalType("bailer")
       setSelectedFirNumber(firNumber)
       setShowModal(true)
+      setExpandedPerson(null)
 
       const { data, error } = await supabase
         .from("bailer_details")
@@ -220,12 +357,31 @@ export default function FIRListPage() {
         return
       }
 
-      // Add FIR number to each record
-      const enrichedData = (data || []).map(person => ({
-        ...person,
-        fir_numbers: [firNumber],
-        occurrence_count: 1
-      }))
+      const { data: accusedData } = await supabase
+        .from("accused_details")
+        .select("id, name")
+        .eq("fir_id", firId)
+
+      const accusedMap = new Map(accusedData?.map(a => [a.id, a.name]) || [])
+
+      const fir = firList.find(f => f.id === firId)
+
+      const enrichedData: PersonWithHistory[] = []
+      
+      for (const person of data || []) {
+        const previousCases = await getPreviousCases(person.mobile, person.aadhaar, firId)
+        enrichedData.push({
+          ...person,
+          accused_name: person.accused_id ? accusedMap.get(person.accused_id) || person.accused_name : person.accused_name,
+          fir_number: firNumber,
+          fir_district: fir?.district_name,
+          fir_thana: fir?.thana_name,
+          fir_status: fir?.case_status,
+          fir_date: fir?.incident_date,
+          previousCases,
+          occurrence_count: previousCases.length + 1
+        })
+      }
 
       setModalData(enrichedData)
     } catch (err: any) {
@@ -236,18 +392,18 @@ export default function FIRListPage() {
     }
   }
 
-  // 🆕 Fetch ALL Accused with repetition check
-  const fetchAllAccusedWithRepetition = async () => {
+  // Fetch ALL Accused with history
+  const fetchAllAccusedWithHistory = async () => {
     try {
       setModalLoading(true)
       setModalType("all-accused")
       setSelectedFirNumber("All FIRs")
       setShowModal(true)
+      setExpandedPerson(null)
 
-      // Get all accused
       const { data: accusedData, error } = await supabase
         .from("accused_details")
-        .select("*, fir_id")
+        .select("*")
         .order("name")
 
       if (error) {
@@ -256,37 +412,28 @@ export default function FIRListPage() {
         return
       }
 
-      // Create FIR ID to FIR number map
-      const firMap: Record<number, string> = {}
-      firList.forEach(fir => {
-        firMap[fir.id] = fir.fir_number
-      })
+      const firMap = new Map(firList.map(f => [f.id, f]))
 
-      // Group by name + mobile/aadhaar for repetition detection
-      const groupedData: Record<string, PersonWithFIRs> = {}
+      const enrichedData: PersonWithHistory[] = []
+      
+      for (const person of accusedData || []) {
+        const fir = firMap.get(person.fir_id)
+        const previousCases = await getPreviousCases(person.mobile, person.aadhaar, person.fir_id)
+        enrichedData.push({
+          ...person,
+          fir_number: fir?.fir_number,
+          fir_district: fir?.district_name,
+          fir_thana: fir?.thana_name,
+          fir_status: fir?.case_status,
+          fir_date: fir?.incident_date,
+          previousCases,
+          occurrence_count: previousCases.length + 1
+        })
+      }
 
-      accusedData?.forEach(person => {
-        // Create unique key (name + mobile or name + aadhaar)
-        const key = `${person.name?.toLowerCase()}_${person.mobile || person.aadhaar || person.id}`
-        
-        if (!groupedData[key]) {
-          groupedData[key] = {
-            ...person,
-            fir_numbers: [firMap[person.fir_id] || `FIR-${person.fir_id}`],
-            occurrence_count: 1
-          }
-        } else {
-          groupedData[key].fir_numbers.push(firMap[person.fir_id] || `FIR-${person.fir_id}`)
-          groupedData[key].occurrence_count += 1
-        }
-      })
+      enrichedData.sort((a, b) => b.occurrence_count - a.occurrence_count)
 
-      // Convert to array and sort by occurrence count
-      const finalData = Object.values(groupedData).sort((a, b) => 
-        b.occurrence_count - a.occurrence_count
-      )
-
-      setModalData(finalData)
+      setModalData(enrichedData)
     } catch (err: any) {
       console.error("Error:", err)
       toast.error("Something went wrong")
@@ -295,18 +442,18 @@ export default function FIRListPage() {
     }
   }
 
-  // 🆕 Fetch ALL Bailers with repetition check
-  const fetchAllBailersWithRepetition = async () => {
+  // Fetch ALL Bailers with history
+  const fetchAllBailersWithHistory = async () => {
     try {
       setModalLoading(true)
       setModalType("all-bailer")
       setSelectedFirNumber("All FIRs")
       setShowModal(true)
+      setExpandedPerson(null)
 
-      // Get all bailers
       const { data: bailerData, error } = await supabase
         .from("bailer_details")
-        .select("*, fir_id")
+        .select("*")
         .order("name")
 
       if (error) {
@@ -315,37 +462,35 @@ export default function FIRListPage() {
         return
       }
 
-      // Create FIR ID to FIR number map
-      const firMap: Record<number, string> = {}
-      firList.forEach(fir => {
-        firMap[fir.id] = fir.fir_number
-      })
+      const firMap = new Map(firList.map(f => [f.id, f]))
 
-      // Group by name + mobile/aadhaar for repetition detection
-      const groupedData: Record<string, PersonWithFIRs> = {}
+      const { data: allAccused } = await supabase
+        .from("accused_details")
+        .select("id, name, fir_id")
 
-      bailerData?.forEach(person => {
-        // Create unique key (name + mobile or name + aadhaar)
-        const key = `${person.name?.toLowerCase()}_${person.mobile || person.aadhaar || person.id}`
-        
-        if (!groupedData[key]) {
-          groupedData[key] = {
-            ...person,
-            fir_numbers: [firMap[person.fir_id] || `FIR-${person.fir_id}`],
-            occurrence_count: 1
-          }
-        } else {
-          groupedData[key].fir_numbers.push(firMap[person.fir_id] || `FIR-${person.fir_id}`)
-          groupedData[key].occurrence_count += 1
-        }
-      })
+      const accusedMap = new Map(allAccused?.map(a => [a.id, a.name]) || [])
 
-      // Convert to array and sort by occurrence count
-      const finalData = Object.values(groupedData).sort((a, b) => 
-        b.occurrence_count - a.occurrence_count
-      )
+      const enrichedData: PersonWithHistory[] = []
+      
+      for (const person of bailerData || []) {
+        const fir = firMap.get(person.fir_id)
+        const previousCases = await getPreviousCases(person.mobile, person.aadhaar, person.fir_id)
+        enrichedData.push({
+          ...person,
+          accused_name: person.accused_id ? accusedMap.get(person.accused_id) || person.accused_name : person.accused_name,
+          fir_number: fir?.fir_number,
+          fir_district: fir?.district_name,
+          fir_thana: fir?.thana_name,
+          fir_status: fir?.case_status,
+          fir_date: fir?.incident_date,
+          previousCases,
+          occurrence_count: previousCases.length + 1
+        })
+      }
 
-      setModalData(finalData)
+      enrichedData.sort((a, b) => b.occurrence_count - a.occurrence_count)
+
+      setModalData(enrichedData)
     } catch (err: any) {
       console.error("Error:", err)
       toast.error("Something went wrong")
@@ -373,19 +518,36 @@ export default function FIRListPage() {
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase() || "open"
-    if (s === "open") return <Badge className="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0">Open</Badge>
-    if (s === "closed") return <Badge className="bg-gray-100 text-gray-700 text-[10px] px-1.5 py-0">Closed</Badge>
-    if (s.includes("investigation")) return <Badge className="bg-yellow-100 text-yellow-700 text-[10px] px-1.5 py-0">Investigating</Badge>
-    if (s.includes("court")) return <Badge className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0">In Court</Badge>
-    if (s === "disposed") return <Badge className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0">Disposed</Badge>
-    return <Badge className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0">{status}</Badge>
+    const config: Record<string, { bg: string; text: string; label: string }> = {
+      open: { bg: "bg-orange-100", text: "text-orange-700", label: "Open" },
+      closed: { bg: "bg-gray-100", text: "text-gray-700", label: "Closed" },
+      under_investigation: { bg: "bg-yellow-100", text: "text-yellow-700", label: "Investigating" },
+      in_court: { bg: "bg-indigo-100", text: "text-indigo-700", label: "In Court" },
+      disposed: { bg: "bg-green-100", text: "text-green-700", label: "Disposed" },
+      chargesheet_filed: { bg: "bg-purple-100", text: "text-purple-700", label: "Chargesheet" }
+    }
+    const { bg, text, label } = config[s] || config.open
+    return <Badge className={`${bg} ${text} text-[10px] px-1.5 py-0`}>{label}</Badge>
+  }
+
+  const getAccusedTypeBadge = (type: string | null | undefined) => {
+    const t = type?.toLowerCase() || "unknown"
+    const config: Record<string, { bg: string; text: string; label: string }> = {
+      unknown: { bg: "bg-gray-100", text: "text-gray-700", label: "UNKNOWN" },
+      known: { bg: "bg-blue-100", text: "text-blue-700", label: "KNOWN" },
+      arrested: { bg: "bg-red-100", text: "text-red-700", label: "ARRESTED" },
+      absconding: { bg: "bg-orange-100", text: "text-orange-700", label: "ABSCONDING" },
+      bailed: { bg: "bg-green-100", text: "text-green-700", label: "BAILED" }
+    }
+    const { bg, text, label } = config[t] || config.unknown
+    return <Badge className={`${bg} ${text} text-[10px] border`}>{label}</Badge>
   }
 
   const formatDate = (date: string) => {
     if (!date) return "-"
     try {
       return new Date(date).toLocaleDateString("en-IN", {
-        day: "2-digit", month: "2-digit", year: "numeric"
+        day: "2-digit", month: "short", year: "numeric"
       })
     } catch {
       return date
@@ -423,12 +585,13 @@ export default function FIRListPage() {
     toast.success("Exported!")
   }
 
-  // Stats
   const stats = {
     total: firList.length,
     open: firList.filter(f => f.case_status?.toLowerCase() === "open").length,
     closed: firList.filter(f => f.case_status?.toLowerCase() === "closed").length,
   }
+
+  const repeatOffendersCount = modalData.filter(p => p.occurrence_count > 1).length
 
   return (
     <div className="min-h-screen bg-gray-50 p-2 lg:p-4">
@@ -448,13 +611,12 @@ export default function FIRListPage() {
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
-              {/* 🆕 All Accused/Bailer Buttons */}
+            <div className="flex gap-2 flex-wrap">
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={fetchAllAccusedWithRepetition} 
-                className="h-8 text-xs bg-blue-50 hover:bg-blue-100 border-blue-300"
+                onClick={fetchAllAccusedWithHistory} 
+                className="h-8 text-xs bg-red-50 hover:bg-red-100 border-red-300 text-red-700"
               >
                 <User className="h-3 w-3 mr-1" />
                 All Accused
@@ -462,8 +624,8 @@ export default function FIRListPage() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={fetchAllBailersWithRepetition} 
-                className="h-8 text-xs bg-green-50 hover:bg-green-100 border-green-300"
+                onClick={fetchAllBailersWithHistory} 
+                className="h-8 text-xs bg-blue-50 hover:bg-blue-100 border-blue-300 text-blue-700"
               >
                 <Users className="h-3 w-3 mr-1" />
                 All Bailers
@@ -536,7 +698,7 @@ export default function FIRListPage() {
           
           {loading ? (
             <div className="py-12 text-center">
-              <div className="animate-spin h-8 w-8 border-3 border-gray-300 border-t-gray-600 rounded-full mx-auto"></div>
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-blue-600" />
               <p className="mt-3 text-xs text-gray-500">Loading...</p>
             </div>
           ) : filteredList.length === 0 ? (
@@ -565,8 +727,8 @@ export default function FIRListPage() {
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3">FIR No.</TableHead>
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3">State</TableHead>
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3">Dist</TableHead>
-                    <TableHead className="text-xs font-bold text-gray-700 py-2 px-3 text-center">Accused</TableHead>
-                    <TableHead className="text-xs font-bold text-gray-700 py-2 px-3 text-center">Bailer</TableHead>
+                    <TableHead className="text-xs font-bold text-gray-700 py-2 px-3 text-center">No. of Accused</TableHead>
+                    <TableHead className="text-xs font-bold text-gray-700 py-2 px-3 text-center">No. of Bailer</TableHead>
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3">Date of FIR</TableHead>
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3">Status</TableHead>
                     <TableHead className="text-xs font-bold text-gray-700 py-2 px-3 text-center">Action</TableHead>
@@ -574,10 +736,7 @@ export default function FIRListPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredList.map((fir, index) => (
-                    <TableRow 
-                      key={fir.id} 
-                      className="hover:bg-gray-50 border-b"
-                    >
+                    <TableRow key={fir.id} className="hover:bg-gray-50 border-b">
                       <TableCell className="text-xs py-2 px-3 text-gray-600">{index + 1}</TableCell>
                       <TableCell 
                         className="text-xs py-2 px-3 font-medium text-blue-600 cursor-pointer hover:underline"
@@ -588,44 +747,48 @@ export default function FIRListPage() {
                       <TableCell className="text-xs py-2 px-3 text-gray-600">{fir.state_name || "-"}</TableCell>
                       <TableCell className="text-xs py-2 px-3 text-gray-600">{fir.district_name || "-"}</TableCell>
                       
-                      {/* Clickable Accused Count */}
                       <TableCell className="text-xs py-2 px-3 text-center">
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation()
                             if ((fir.accused_count || 0) > 0) {
                               fetchAccusedDetails(fir.id, fir.fir_number)
                             }
                           }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                            (fir.accused_count || 0) > 0 
-                              ? "bg-blue-100 text-blue-700 hover:bg-blue-200 cursor-pointer" 
-                              : "bg-gray-100 text-gray-400 cursor-default"
-                          }`}
                           disabled={(fir.accused_count || 0) === 0}
+                          className={`h-7 px-2 text-xs ${
+                            (fir.accused_count || 0) > 0 
+                              ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100" 
+                              : ""
+                          }`}
                         >
+                          <User className="h-3 w-3 mr-1" />
                           {fir.accused_count || 0}
-                        </button>
+                        </Button>
                       </TableCell>
                       
-                      {/* Clickable Bailer Count */}
                       <TableCell className="text-xs py-2 px-3 text-center">
-                        <button
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation()
                             if ((fir.bailer_count || 0) > 0) {
                               fetchBailerDetails(fir.id, fir.fir_number)
                             }
                           }}
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
-                            (fir.bailer_count || 0) > 0 
-                              ? "bg-green-100 text-green-700 hover:bg-green-200 cursor-pointer" 
-                              : "bg-gray-100 text-gray-400 cursor-default"
-                          }`}
                           disabled={(fir.bailer_count || 0) === 0}
+                          className={`h-7 px-2 text-xs ${
+                            (fir.bailer_count || 0) > 0 
+                              ? "bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100" 
+                              : ""
+                          }`}
                         >
+                          <Users className="h-3 w-3 mr-1" />
                           {fir.bailer_count || 0}
-                        </button>
+                        </Button>
                       </TableCell>
                       
                       <TableCell className="text-xs py-2 px-3 text-gray-600">{formatDate(fir.incident_date)}</TableCell>
@@ -638,22 +801,10 @@ export default function FIRListPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuItem 
-                              onClick={(e) => { 
-                                e.stopPropagation()
-                                router.push(`/fir/${fir.id}`) 
-                              }}
-                              className="text-xs"
-                            >
+                            <DropdownMenuItem onClick={() => router.push(`/fir/${fir.id}`)} className="text-xs">
                               <Eye className="h-3 w-3 mr-2" /> View
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={(e) => { 
-                                e.stopPropagation()
-                                router.push(`/fir/${fir.id}/edit`) 
-                              }}
-                              className="text-xs"
-                            >
+                            <DropdownMenuItem onClick={() => router.push(`/fir/${fir.id}/edit`)} className="text-xs">
                               <Edit className="h-3 w-3 mr-2" /> Edit
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -667,7 +818,6 @@ export default function FIRListPage() {
           )}
         </div>
 
-        {/* Footer */}
         {!loading && filteredList.length > 0 && (
           <p className="text-[10px] text-gray-400 text-center">
             Showing {filteredList.length} of {firList.length} records
@@ -675,146 +825,241 @@ export default function FIRListPage() {
         )}
       </div>
 
-      {/* 🆕 Modal for Accused/Bailer Details - TABLE FORMAT */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader className="border-b pb-3">
-            <DialogTitle className="flex items-center gap-2 text-base">
-              {modalType === "accused" || modalType === "all-accused" ? (
-                <>
-                  <User className="h-4 w-4 text-blue-600" />
-                  <span>Accused Details</span>
-                </>
-              ) : (
-                <>
-                  <Users className="h-4 w-4 text-green-600" />
-                  <span>Bailer Details</span>
-                </>
-              )}
-              <Badge variant="outline" className="ml-2 text-xs">
-                FIR: {selectedFirNumber}
-              </Badge>
-              {modalData.filter(p => p.occurrence_count > 1).length > 0 && (
-                <Badge className="ml-1 bg-red-100 text-red-700 text-xs">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Repeating Found
-                </Badge>
-              )}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="flex-1 overflow-auto">
-            {modalLoading ? (
-              <div className="py-8 text-center">
-                <div className="animate-spin h-6 w-6 border-2 border-gray-300 border-t-gray-600 rounded-full mx-auto"></div>
-                <p className="mt-2 text-xs text-gray-500">Loading...</p>
-              </div>
-            ) : modalData.length === 0 ? (
-              <div className="py-8 text-center">
-                <User className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No {modalType.includes("accused") ? "accused" : "bailer"} found</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className={modalType.includes("accused") ? "bg-blue-50" : "bg-green-50"}>
-                      <TableHead className="text-xs font-bold py-2">Sl</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Name</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Father</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Age/Gender</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Aadhaar</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Mobile</TableHead>
-                      <TableHead className="text-xs font-bold py-2">Address</TableHead>
-                      <TableHead className="text-xs font-bold py-2">State/District</TableHead>
-                      <TableHead className="text-xs font-bold py-2">PIN</TableHead>
-                      {(modalType === "all-accused" || modalType === "all-bailer") && (
-                        <TableHead className="text-xs font-bold py-2">FIR Numbers</TableHead>
-                      )}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {modalData.map((person, idx) => (
-                      <TableRow 
-                        key={person.id} 
-                        className={`hover:bg-gray-50 ${
-                          person.occurrence_count > 1 ? "bg-yellow-50" : ""
-                        }`}
-                      >
-                        <TableCell className="text-xs py-2">
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${
-                            modalType.includes("accused") ? "bg-blue-500" : "bg-green-500"
-                          }`}>
-                            {idx + 1}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-xs py-2 font-medium">
-                          {person.name || "-"}
-                          {person.occurrence_count > 1 && (
-                            <Badge className="ml-1 bg-red-100 text-red-600 text-[10px]">
-                              {person.occurrence_count}x
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs py-2">{person.father_name || "-"}</TableCell>
-                        <TableCell className="text-xs py-2">
-                          {person.age || "-"}/{person.gender?.[0]?.toUpperCase() || "-"}
-                        </TableCell>
-                        <TableCell className="text-xs py-2">{person.aadhaar || "-"}</TableCell>
-                        <TableCell className="text-xs py-2">{person.mobile || "-"}</TableCell>
-                        <TableCell className="text-xs py-2 max-w-[200px] truncate" title={person.full_address || ""}>
-                          {person.full_address || "-"}
-                        </TableCell>
-                        <TableCell className="text-xs py-2">
-                          {[person.district_name, person.state_name].filter(Boolean).join(", ") || "-"}
-                        </TableCell>
-                        <TableCell className="text-xs py-2">{person.pin_code || "-"}</TableCell>
-                        {(modalType === "all-accused" || modalType === "all-bailer") && (
-                          <TableCell className="text-xs py-2">
-                            <div className="flex flex-wrap gap-1">
-                              {person.fir_numbers.map((firNo, i) => (
-                                <Badge 
-                                  key={i} 
-                                  variant="outline" 
-                                  className="text-[10px] px-1 py-0 cursor-pointer hover:bg-gray-100"
-                                  onClick={() => {
-                                    const fir = firList.find(f => f.fir_number === firNo)
-                                    if (fir) {
-                                      setShowModal(false)
-                                      router.push(`/fir/${fir.id}`)
-                                    }
-                                  }}
-                                >
-                                  {firNo}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+      {/* Modal for Accused/Bailer Details with History */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={
+          modalType === "accused" ? "Accused List" :
+          modalType === "bailer" ? "Bailer List" :
+          modalType === "all-accused" ? "All Accused Database" :
+          "All Bailers Database"
+        }
+        subtitle={`FIR: ${selectedFirNumber} | Total: ${modalData.length}${repeatOffendersCount > 0 ? ` | Repeat: ${repeatOffendersCount}` : ''}`}
+      >
+        {modalLoading ? (
+          <div className="py-12 text-center">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+            <p className="mt-3 text-sm text-gray-500">Loading details with history...</p>
+          </div>
+        ) : modalData.length === 0 ? (
+          <div className="py-12 text-center">
+            <User className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No records found</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Alert for repeat offenders */}
+            {repeatOffendersCount > 0 && (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <div>
+                  <p className="font-semibold text-yellow-800 text-sm">Repeat Offenders Found!</p>
+                  <p className="text-xs text-yellow-700">{repeatOffendersCount} person(s) appear in multiple cases</p>
+                </div>
               </div>
             )}
-          </div>
-          
-          {/* Footer */}
-          <div className="border-t pt-3 flex justify-between items-center">
-            <div className="text-xs text-gray-500">
-              Total: {modalData.length} {modalType.includes("accused") ? "Accused" : "Bailer"}(s)
-              {modalData.filter(p => p.occurrence_count > 1).length > 0 && (
-                <span className="ml-2 text-red-600 font-medium">
-                  • {modalData.filter(p => p.occurrence_count > 1).length} Repeating
-                </span>
-              )}
+
+            {/* Table */}
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className={`border-b-2 ${modalType.includes("accused") ? "bg-red-50" : "bg-blue-50"}`}>
+                  <tr>
+                    <th className="px-3 py-3 text-left text-xs font-bold">#</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold">NAME</th>
+                    {modalType.includes("bailer") && (
+                      <th className="px-3 py-3 text-left text-xs font-bold">BAILER FOR</th>
+                    )}
+                    <th className="px-3 py-3 text-left text-xs font-bold">FATHER NAME</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold">AGE/GENDER</th>
+                    {modalType.includes("accused") && (
+                      <th className="px-3 py-3 text-left text-xs font-bold">STATUS</th>
+                    )}
+                    <th className="px-3 py-3 text-left text-xs font-bold">MOBILE</th>
+                    <th className="px-3 py-3 text-left text-xs font-bold">AADHAAR</th>
+                    {(modalType === "all-accused" || modalType === "all-bailer") && (
+                      <th className="px-3 py-3 text-left text-xs font-bold">FIR NO.</th>
+                    )}
+                    <th className="px-3 py-3 text-left text-xs font-bold">ADDRESS</th>
+                    <th className="px-3 py-3 text-center text-xs font-bold">HISTORY</th>
+                    <th className="px-3 py-3 text-center text-xs font-bold">ACTION</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {modalData.map((person, idx) => {
+                    const hasHistory = person.previousCases && person.previousCases.length > 0
+                    const isExpanded = expandedPerson === person.id
+
+                    return (
+                      <>
+                        <tr 
+                          key={person.id} 
+                          className={`hover:bg-gray-50 ${hasHistory ? "bg-yellow-50/50" : ""}`}
+                        >
+                          <td className="px-3 py-3 text-xs">{idx + 1}</td>
+                          <td className="px-3 py-3 font-medium">
+                            <div className="flex items-center gap-2">
+                              {person.name}
+                              {hasHistory && (
+                                <Badge className="bg-yellow-100 text-yellow-700 text-[10px]">
+                                  {person.occurrence_count}x
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          {modalType.includes("bailer") && (
+                            <td className="px-3 py-3">
+                              {person.accused_name ? (
+                                <Badge className="bg-blue-100 text-blue-700 border-blue-300 border text-xs">
+                                  <Link2 className="h-3 w-3 mr-1" />
+                                  {person.accused_name}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 text-xs italic">Not Linked</span>
+                              )}
+                            </td>
+                          )}
+                          <td className="px-3 py-3 text-xs">{person.father_name || "-"}</td>
+                          <td className="px-3 py-3 text-xs">{person.age || "-"} / {person.gender || "-"}</td>
+                          {modalType.includes("accused") && (
+                            <td className="px-3 py-3">{getAccusedTypeBadge(person.accused_type)}</td>
+                          )}
+                          <td className="px-3 py-3 text-xs">
+                            {person.mobile ? (
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3 text-green-600" />
+                                {person.mobile}
+                              </span>
+                            ) : "-"}
+                          </td>
+                          <td className="px-3 py-3 text-xs font-mono">{person.aadhaar || "-"}</td>
+                          {(modalType === "all-accused" || modalType === "all-bailer") && (
+                            <td className="px-3 py-3 text-xs font-mono text-blue-600 font-semibold">
+                              {person.fir_number || "-"}
+                            </td>
+                          )}
+                          <td className="px-3 py-3 text-xs max-w-[150px] truncate">
+                            {person.full_address || "-"}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {hasHistory ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs bg-yellow-50 border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                                onClick={() => setExpandedPerson(isExpanded ? null : person.id)}
+                              >
+                                <History className="h-3 w-3 mr-1" />
+                                {person.previousCases!.length}
+                                {isExpanded ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+                              </Button>
+                            ) : (
+                              <span className="text-gray-400 text-xs">None</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => {
+                                setShowModal(false)
+                                router.push(`/fir/${person.fir_id}`)
+                              }}
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                        
+                        {/* Expanded History Row */}
+                        {isExpanded && hasHistory && (
+                          <tr>
+                            <td colSpan={modalType.includes("bailer") ? 12 : 11} className="px-3 py-3 bg-yellow-50">
+                              <div className="pl-6">
+                                <p className="font-semibold text-sm mb-3 flex items-center gap-2">
+                                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                                  Previous Cases ({person.previousCases!.length}) - This person appeared in other cases
+                                </p>
+                                <div className="overflow-x-auto border rounded-lg">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-yellow-100">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left font-bold">FIR Number</th>
+                                        <th className="px-3 py-2 text-left font-bold">District</th>
+                                        <th className="px-3 py-2 text-left font-bold">Thana</th>
+                                        <th className="px-3 py-2 text-left font-bold">Date</th>
+                                        <th className="px-3 py-2 text-left font-bold">Role</th>
+                                        <th className="px-3 py-2 text-left font-bold">Status</th>
+                                        <th className="px-3 py-2 text-center font-bold">Action</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y">
+                                      {person.previousCases!.map((pc, pcIdx) => (
+                                        <tr key={pcIdx} className="hover:bg-gray-50">
+                                          <td className="px-3 py-2 font-mono font-semibold text-blue-600">
+                                            {pc.fir_number}
+                                          </td>
+                                          <td className="px-3 py-2">{pc.district_name || "-"}</td>
+                                          <td className="px-3 py-2">{pc.thana_name || "-"}</td>
+                                          <td className="px-3 py-2">{formatDate(pc.incident_date)}</td>
+                                          <td className="px-3 py-2">
+                                            <Badge className={`text-[10px] ${
+                                              pc.role === "Accused" 
+                                                ? "bg-red-100 text-red-700" 
+                                                : "bg-blue-100 text-blue-700"
+                                            }`}>
+                                              {pc.role}
+                                            </Badge>
+                                          </td>
+                                          <td className="px-3 py-2">{getStatusBadge(pc.case_status)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-6 text-xs"
+                                              onClick={() => {
+                                                setShowModal(false)
+                                                router.push(`/fir/${pc.fir_id}`)
+                                              }}
+                                            >
+                                              <Eye className="h-3 w-3" />
+                                            </Button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowModal(false)} className="text-xs h-7">
-              Close
-            </Button>
+
+            {/* Summary Footer */}
+            <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                <span className="font-semibold">Total: {modalData.length}</span>
+                {repeatOffendersCount > 0 && (
+                  <span className="ml-4 text-yellow-700 font-semibold">
+                    • Repeat: {repeatOffendersCount}
+                  </span>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowModal(false)}>
+                Close
+              </Button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </Modal>
     </div>
   )
 }
