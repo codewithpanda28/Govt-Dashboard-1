@@ -225,7 +225,7 @@ export default function FIRListPage() {
       const { data: accusedRecords } = await accusedQuery
 
       if (accusedRecords && accusedRecords.length > 0) {
-        const firIds = [...new Set(accusedRecords.map(a => a.fir_id))]
+        const firIds = Array.from(new Set(accusedRecords.map(a => a.fir_id)))
         const { data: firs } = await supabase
           .from("fir_records")
           .select("id, fir_number, district_name, thana_name, case_status, incident_date")
@@ -261,7 +261,7 @@ export default function FIRListPage() {
       const { data: bailerRecords } = await bailerQuery
 
       if (bailerRecords && bailerRecords.length > 0) {
-        const firIds = [...new Set(bailerRecords.map(b => b.fir_id))]
+        const firIds = Array.from(new Set(bailerRecords.map(b => b.fir_id)))
         const { data: firs } = await supabase
           .from("fir_records")
           .select("id, fir_number, district_name, thana_name, case_status, incident_date")
