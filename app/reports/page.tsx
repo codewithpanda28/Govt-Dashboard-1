@@ -742,7 +742,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Alert Cards - CLICKABLE */}
-            {(stats.repeatOffenders > 0 || stats.suspiciousBailers > 0) && (
+            {/* {(stats.repeatOffenders > 0 || stats.suspiciousBailers > 0) && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
                 {stats.repeatOffenders > 0 && (
                   <Card 
@@ -783,7 +783,7 @@ export default function ReportsPage() {
                   </Card>
                 )}
               </div>
-            )}
+            )} */}
 
             {/* Filters */}
             <Card className="border-2 print:hidden">

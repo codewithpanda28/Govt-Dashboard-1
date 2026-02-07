@@ -416,7 +416,7 @@ export default function BailListPage() {
         )}
 
         {/* Suspicious Bailer Alert */}
-        {stats.wasAccused > 0 && (
+        {/* {stats.wasAccused > 0 && (
           <Card className="border-2 border-red-300 bg-red-50">
             <CardContent className="py-4 flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0" />
@@ -428,10 +428,10 @@ export default function BailListPage() {
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Repeat Bailers Alert */}
-        {stats.repeatBailers > 0 && (
+        {/* {stats.repeatBailers > 0 && (
           <Card className="border-2 border-yellow-300 bg-yellow-50">
             <CardContent className="py-4 flex items-center gap-3">
               <History className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -443,7 +443,7 @@ export default function BailListPage() {
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">

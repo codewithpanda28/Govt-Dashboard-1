@@ -366,7 +366,7 @@ export default function AccusedListPage() {
               <Users className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Accused Database</h1>
+              <h1 className="text-xl font-bold">Accused Database</h1>
               <p className="text-muted-foreground text-sm">
                 Total: {accusedList.length} | Showing: {filteredList.length} records
                 {stats.repeatOffenders > 0 && (
@@ -403,7 +403,7 @@ export default function AccusedListPage() {
         )}
 
         {/* Repeat Offenders Alert */}
-        {stats.repeatOffenders > 0 && (
+        {/* {stats.repeatOffenders > 0 && (
           <Card className="border-2 border-yellow-300 bg-yellow-50">
             <CardContent className="py-4 flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
@@ -415,7 +415,7 @@ export default function AccusedListPage() {
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -431,7 +431,7 @@ export default function AccusedListPage() {
             <Card key={i} className="border-2">
               <CardContent className="py-4 text-center">
                 <stat.icon className={`h-5 w-5 mx-auto mb-1 ${stat.color}`} />
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
                 <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
               </CardContent>
             </Card>

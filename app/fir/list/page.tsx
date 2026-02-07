@@ -819,7 +819,7 @@ export default function FIRListPage() {
         </div>
 
         {!loading && filteredList.length > 0 && (
-          <p className="text-[10px] text-gray-400 text-center">
+          <p className="text-[0.6rem] text-gray-400 text-center">
             Showing {filteredList.length} of {firList.length} records
           </p>
         )}

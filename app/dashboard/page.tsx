@@ -619,7 +619,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* 🔥 ACCESS LEVEL NOTICE */}
-        {accessLevel !== "admin" && (
+        {/* {accessLevel !== "admin" && (
           <Card className="bg-amber-50 border-2 border-amber-200">
             <CardContent className="p-4 flex items-start gap-3">
               <Info className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
@@ -632,7 +632,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
-        )}
+        )} */}
 
         {/* Stats Grid - 8 Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

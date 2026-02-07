@@ -578,7 +578,7 @@ export default function AddFIRPage() {
                 <div>
                   <Label className="text-gray-700 font-semibold">Crime Type <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.accused_type}
                     onChange={(e) => handleChange("accused_type", e.target.value)}
                   >
@@ -598,9 +598,9 @@ export default function AddFIRPage() {
 
                 {/* 🆕 Status Field Added */}
                 <div>
-                  <Label className="text-gray-700 font-semibold">Status</Label>
+                  <Label className="text-gray-700 font-semibold">Status <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.case_status}
                     onChange={(e) => handleChange("case_status", e.target.value)}
                   >
@@ -615,9 +615,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">State</Label>
+                  <Label className="text-gray-700 font-semibold">State <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.state_id}
                     onChange={(e) => handleStateChange(e.target.value)}
                   >
@@ -629,9 +629,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Zone</Label>
+                  <Label className="text-gray-700 font-semibold">Zone <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.zone_id}
                     onChange={(e) => handleZoneChange(e.target.value)}
                   >
@@ -643,9 +643,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">District</Label>
+                  <Label className="text-gray-700 font-semibold">District <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.district_id}
                     onChange={(e) => handleDistrictChange(e.target.value)}
                   >
@@ -657,9 +657,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Thana</Label>
+                  <Label className="text-gray-700 font-semibold">Thana <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.thana_id}
                     onChange={(e) => handleThanaChange(e.target.value)}
                   >
@@ -671,9 +671,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Court</Label>
+                  <Label className="text-gray-700 font-semibold">Court <span className="text-red-600">*</span></Label>
                   <select
-                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500"
+                    className="w-full mt-1 px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-gray-500 bg-white"
                     value={formData.court_id}
                     onChange={(e) => handleChange("court_id", e.target.value)}
                   >
@@ -685,9 +685,9 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Section</Label>
+                  <Label className="text-gray-700 font-semibold">Section <span className="text-red-600">*</span></Label>
                   <Input
-                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white"
                     placeholder="e.g., IPC 379, 411"
                     value={formData.law_sections}
                     onChange={(e) => handleChange("law_sections", e.target.value)}
@@ -697,7 +697,7 @@ export default function AddFIRPage() {
                 <div>
                   <Label className="text-gray-700 font-semibold">FIR No. <span className="text-red-600">*</span></Label>
                   <Input
-                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white"
                     placeholder="e.g., 001/2024/RPF"
                     value={formData.fir_number}
                     onChange={(e) => handleChange("fir_number", e.target.value)}
@@ -705,20 +705,20 @@ export default function AddFIRPage() {
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Date of FIR</Label>
+                  <Label className="text-gray-700 font-semibold">Date of FIR <span className="text-red-600">*</span></Label>
                   <Input
                     type="date"
-                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white"
                     value={formData.fir_date}
                     onChange={(e) => handleChange("fir_date", e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <Label className="text-gray-700 font-semibold">Timing of Incident</Label>
+                  <Label className="text-gray-700 font-semibold">Timing of Incident <span className="text-red-600">*</span></Label>
                   <Input
                     type="time"
-                    className="mt-1 border-gray-300 focus:border-gray-500"
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white"
                     value={formData.incident_time}
                     onChange={(e) => handleChange("incident_time", e.target.value)}
                   />
@@ -735,18 +735,18 @@ export default function AddFIRPage() {
             <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-700 font-semibold">Train No.</Label>
+                  <Label className="text-gray-700 font-semibold">Train No. <span className="text-red-600">*</span></Label>
                   <Input 
-                    className="mt-1 border-gray-300 focus:border-gray-500" 
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white" 
                     placeholder="e.g., 12345" 
                     value={formData.train_number} 
                     onChange={(e) => handleChange("train_number", e.target.value)} 
                   />
                 </div>
                 <div>
-                  <Label className="text-gray-700 font-semibold">Train Name</Label>
+                  <Label className="text-gray-700 font-semibold">Train Name <span className="text-red-600">*</span></Label>
                   <Input 
-                    className="mt-1 border-gray-300 focus:border-gray-500" 
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white" 
                     placeholder="e.g., Rajdhani Express" 
                     value={formData.train_name} 
                     onChange={(e) => handleChange("train_name", e.target.value)} 
@@ -764,18 +764,18 @@ export default function AddFIRPage() {
             <div className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-gray-700 font-semibold">Station Code</Label>
+                  <Label className="text-gray-700 font-semibold">Station Code <span className="text-red-600">*</span></Label>
                   <Input 
-                    className="mt-1 border-gray-300 focus:border-gray-500" 
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white" 
                     placeholder="e.g., PNBE" 
                     value={formData.station_code} 
                     onChange={(e) => handleChange("station_code", e.target.value)} 
                   />
                 </div>
                 <div>
-                  <Label className="text-gray-700 font-semibold">Station Name</Label>
+                  <Label className="text-gray-700 font-semibold">Station Name <span className="text-red-600">*</span></Label>
                   <Input 
-                    className="mt-1 border-gray-300 focus:border-gray-500" 
+                    className="mt-1 border-gray-300 focus:border-gray-500 bg-white" 
                     placeholder="e.g., Patna Junction" 
                     value={formData.station_name} 
                     onChange={(e) => handleChange("station_name", e.target.value)} 
@@ -821,7 +821,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Name</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Full Name" 
                         value={accused.name} 
                         onChange={(e) => updateAccused(idx, "name", e.target.value)} 
@@ -829,9 +829,9 @@ export default function AddFIRPage() {
                     </div>
                     
                     <div>
-                      <Label className="text-gray-700">Aadhaar No.</Label>
+                      <Label className="text-gray-700">Aadhaar No. <span className="text-red-600">*</span></Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="XXXX-XXXX-XXXX" 
                         maxLength={12}
                         value={accused.aadhaar} 
@@ -842,7 +842,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Gender</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={accused.gender} 
                         onChange={(e) => updateAccused(idx, "gender", e.target.value)}
                       >
@@ -856,7 +856,7 @@ export default function AddFIRPage() {
                       <Label className="text-gray-700">DOB / Age</Label>
                       <Input 
                         type="date"
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         value={accused.dob} 
                         onChange={(e) => updateAccused(idx, "dob", e.target.value)} 
                       />
@@ -876,7 +876,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">PAN No.</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="XXXXX0000X" 
                         maxLength={10}
                         value={accused.pan} 
@@ -887,7 +887,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Father's Name</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Father's Name" 
                         value={accused.father_name} 
                         onChange={(e) => updateAccused(idx, "father_name", e.target.value)} 
@@ -897,7 +897,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">State</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={accused.state_id} 
                         onChange={(e) => updateAccused(idx, "state_id", e.target.value)}
                       >
@@ -911,7 +911,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">District</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={accused.district_id} 
                         onChange={(e) => updateAccused(idx, "district_id", e.target.value)}
                       >
@@ -925,7 +925,7 @@ export default function AddFIRPage() {
                     <div className="md:col-span-2">
                       <Label className="text-gray-700">Full Address</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Complete Address" 
                         value={accused.full_address} 
                         onChange={(e) => updateAccused(idx, "full_address", e.target.value)} 
@@ -935,7 +935,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">PIN Code</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="6 digit PIN" 
                         maxLength={6}
                         value={accused.pin_code} 
@@ -946,7 +946,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Mobile</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="10 digit mobile" 
                         maxLength={10}
                         value={accused.mobile} 
@@ -958,7 +958,7 @@ export default function AddFIRPage() {
                       <Label className="text-gray-700">Email ID</Label>
                       <Input 
                         type="email"
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="email@example.com" 
                         value={accused.email} 
                         onChange={(e) => updateAccused(idx, "email", e.target.value)} 
@@ -1006,7 +1006,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Name</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Full Name" 
                         value={bailer.name} 
                         onChange={(e) => updateBailer(idx, "name", e.target.value)} 
@@ -1014,9 +1014,9 @@ export default function AddFIRPage() {
                     </div>
                     
                     <div>
-                      <Label className="text-gray-700">Aadhaar No.</Label>
+                      <Label className="text-gray-700">Aadhaar No. <span className="text-red-600">*</span></Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="XXXX-XXXX-XXXX" 
                         maxLength={12}
                         value={bailer.aadhaar} 
@@ -1027,7 +1027,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Gender</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={bailer.gender} 
                         onChange={(e) => updateBailer(idx, "gender", e.target.value)}
                       >
@@ -1041,7 +1041,7 @@ export default function AddFIRPage() {
                       <Label className="text-gray-700">DOB / Age</Label>
                       <Input 
                         type="date"
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         value={bailer.dob} 
                         onChange={(e) => updateBailer(idx, "dob", e.target.value)} 
                       />
@@ -1061,7 +1061,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">PAN No.</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="XXXXX0000X" 
                         maxLength={10}
                         value={bailer.pan} 
@@ -1072,7 +1072,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Father's Name</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Father's Name" 
                         value={bailer.father_name} 
                         onChange={(e) => updateBailer(idx, "father_name", e.target.value)} 
@@ -1082,7 +1082,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">State</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={bailer.state_id} 
                         onChange={(e) => updateBailer(idx, "state_id", e.target.value)}
                       >
@@ -1096,7 +1096,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">District</Label>
                       <select 
-                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded" 
+                        className="w-full mt-1 px-3 py-2 border border-gray-300 rounded bg-white" 
                         value={bailer.district_id} 
                         onChange={(e) => updateBailer(idx, "district_id", e.target.value)}
                       >
@@ -1110,7 +1110,7 @@ export default function AddFIRPage() {
                     <div className="md:col-span-2">
                       <Label className="text-gray-700">Full Address</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="Complete Address" 
                         value={bailer.full_address} 
                         onChange={(e) => updateBailer(idx, "full_address", e.target.value)} 
@@ -1120,7 +1120,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">PIN Code</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="6 digit PIN" 
                         maxLength={6}
                         value={bailer.pin_code} 
@@ -1131,7 +1131,7 @@ export default function AddFIRPage() {
                     <div>
                       <Label className="text-gray-700">Mobile</Label>
                       <Input 
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="10 digit mobile" 
                         maxLength={10}
                         value={bailer.mobile} 
@@ -1143,7 +1143,7 @@ export default function AddFIRPage() {
                       <Label className="text-gray-700">Email ID</Label>
                       <Input 
                         type="email"
-                        className="mt-1 border-gray-300"
+                        className="mt-1 border-gray-300 bg-white"
                         placeholder="email@example.com" 
                         value={bailer.email} 
                         onChange={(e) => updateBailer(idx, "email", e.target.value)} 
@@ -1164,7 +1164,7 @@ export default function AddFIRPage() {
               <div>
                 <Label className="text-gray-700 font-semibold">Brief (Description)</Label>
                 <Textarea 
-                  className="mt-1 border-gray-300"
+                  className="mt-1 border-gray-300 bg-white"
                   placeholder="Enter detailed description of the incident..." 
                   value={formData.brief_description} 
                   onChange={(e) => handleChange("brief_description", e.target.value)} 
@@ -1180,7 +1180,7 @@ export default function AddFIRPage() {
                     accept=".pdf,.jpg,.jpeg,.png"
                     onChange={handleFileUpload}
                     disabled={uploadingFile}
-                    className="flex-1 border-gray-300"
+                    className="flex-1 border-gray-300 bg-white"
                   />
                   {uploadingFile && <Loader2 className="h-5 w-5 animate-spin text-gray-600" />}
                 </div>
